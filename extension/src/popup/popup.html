@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FraudGuard Monitor</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="pulse-dot"></div>
+                <h1>FraudGuard Monitor</h1>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="toggle-monitor" checked>
+                <span class="slider round"></span>
+            </label>
+        </header>
+
+        <div class="status-panel">
+            <span class="status-text" id="status-label">Monitoring Active</span>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-value" id="fields-scanned">0</span>
+                <span class="stat-name">Fields Scanned</span>
+            </div>
+            <div class="stat-card danger">
+                <span class="stat-value" id="risks-flagged">0</span>
+                <span class="stat-name">Risks Flagged</span>
+            </div>
+        </div>
+
+        <footer>
+            <span>Connected to Backend API</span>
+        </footer>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

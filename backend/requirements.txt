@@ -1,0 +1,7 @@
+fastapi[all]
+uvicorn
+motor
+pydantic
+sentence-transformers
+faiss-cpu
+python-dotenv

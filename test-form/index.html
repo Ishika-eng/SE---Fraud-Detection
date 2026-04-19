@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Account Registration - Local Demo</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background-color: #f3f4f6; display: flex; justify-content: center; padding-top: 50px; }
+        .form-container { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 400px; }
+        h2 { font-size: 20px; color: #111827; margin-bottom: 20px; }
+        .input-group { margin-bottom: 20px; position: relative;}
+        label { display: block; font-size: 13px; font-weight: 600; color: #4b5563; margin-bottom: 8px; }
+        input { padding: 10px; width: 100%; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        button { width: 100%; padding: 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        
+        /* The exact classes injected by the Extension */
+        .fraud-alert-tooltip { position: absolute; background-color: #ef4444; color: white; padding: 5px 10px; border-radius: 6px; font-size: 12px; z-index: 10; font-weight: bold; top: -30px; right: 0; pointer-events: none; transition: 0.3s; opacity: 1; }
+        .fraud-input-warning { border: 2px solid #ef4444 !important; outline: none; box-shadow: 0 0 8px rgba(239, 68, 68, 0.3) !important; }
+    </style>
+</head>
+<body>
+
+    <div class="form-container">
+        <h2>Open Your Account</h2>
+        <form id="registration-form">
+            <div class="input-group">
+                <label>Full Legal Name</label>
+                <input type="text" id="FullName" placeholder="e.g. Rahul Sharma" autocomplete="off" />
+            </div>
+            
+            <div class="input-group">
+                <label>Email Address</label>
+                <input type="email" id="EmailAddress" placeholder="you@domain.com" autocomplete="off" />
+            </div>
+
+            <div class="input-group">
+                <label>Social Security or PAN Number</label>
+                <input type="text" id="GovID" placeholder="SSN/PAN..." autocomplete="off" />
+            </div>
+            
+            <div id="message-banner" style="margin-top: 15px; padding: 10px; border-radius: 6px; font-size: 13px; display: none; font-weight: bold;"></div>
+            
+            <button type="button" id="submit-btn" style="margin-top: 10px;">Complete Registration</button>
+        </form>
+        <p style="font-size: 12px; color: #6b7280; margin-top: 15px;">* This page runs our localized ML tracker simulating the Chrome Extension seamlessly *</p>
+    </div>
+
+    <script>
+        // MOCKING chrome.runtime.sendMessage to hit our localhost directly!
+        let inputState = {};
+        const submitBtn = document.getElementById('submit-btn');
+        const messageBanner = document.getElementById('message-banner');
+
+        function showMessage(msg, isError) {
+            messageBanner.innerText = msg;
+            messageBanner.style.display = "block";
+            messageBanner.style.backgroundColor = isError ? "#fee2e2" : "#dcfce7";
+            messageBanner.style.color = isError ? "#912727" : "#166534";
+        }
+
+        // Logic for final submission
+        submitBtn.addEventListener('click', () => {
+            const fullName = document.getElementById('FullName').value;
+            const email = document.getElementById('EmailAddress').value;
+            const govId = document.getElementById('GovID').value;
+            
+            if (!fullName || !email || !govId) {
+                return showMessage("Please fill in all identity fields for secure registration.", true);
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Processing...";
+
+            const payload = {
+                formContext: "Local_Bank_Demo_Form",
+                fieldName: "FinalSubmit",
+                value: fullName, 
+                identityDetails: {
+                    "FullName": fullName,
+                    "EmailAddress": email,
+                    "GovID": govId
+                },
+                behavior: {
+                    keystrokesCount: inputState['FullName']?.keystrokes.length || 0,
+                    deletionsCount: inputState['FullName']?.deletions || 0,
+                    pastesCount: inputState['FullName']?.pastes || 0,
+                    timeToCompleteMs: 0,
+                    cps: 0
+                }
+            };
+
+            fetch("http://localhost:8000/api/submit", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                // If it's an error response from FastAPI (detail field)
+                if (data.detail) {
+                   showMessage(data.detail, true);
+                } else if (data.status === "success") {
+                    showMessage("Registration Successful! Identity saved.", false);
+                } else {
+                    showMessage("Submission Error.", true);
+                }
+            })
+            .catch(e => showMessage("Backend Error. Make sure FastAPI is running.", true))
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Complete Registration";
+            });
+        });
+
+        function showWarning(element, message) {
+            element.classList.add("fraud-input-warning");
+            
+            let tooltip = element.nextElementSibling;
+            if (!tooltip || !tooltip.classList.contains("fraud-alert-tooltip")) {
+                tooltip = document.createElement("div");
+                tooltip.className = "fraud-alert-tooltip";
+                element.parentNode.appendChild(tooltip);
+            }
+            tooltip.innerText = message;
+            tooltip.style.opacity = "1";
+        }
+
+        function clearWarning(element) {
+            element.classList.remove("fraud-input-warning");
+            const tooltip = element.parentNode.querySelector('.fraud-alert-tooltip');
+            if (tooltip) tooltip.remove();
+        }
+
+        document.addEventListener("keyup", (event) => {
+            const target = event.target;
+            if (["INPUT"].includes(target.tagName)) {
+                
+                const fieldName = target.id;
+                const value = target.value;
+                const timestamp = Date.now();
+
+                if (!inputState[fieldName]) {
+                    inputState[fieldName] = { keystrokes: [], deletions: 0, pastes: 0 };
+                }
+
+                if (event.key === "Backspace" || event.key === "Delete") {
+                    inputState[fieldName].deletions += 1;
+                } else {
+                    inputState[fieldName].keystrokes.push(timestamp);
+                }
+
+                clearTimeout(inputState[fieldName].timer);
+                inputState[fieldName].timer = setTimeout(() => {
+                    const timeToCompleteMs = inputState[fieldName].keystrokes.length > 1 ? 
+                        (inputState[fieldName].keystrokes[inputState[fieldName].keystrokes.length - 1] - inputState[fieldName].keystrokes[0]) : 0;
+                    
+                    const cps = timeToCompleteMs > 0 ? (inputState[fieldName].keystrokes.length / (timeToCompleteMs / 1000)).toFixed(2) : 0;
+
+                    const payload = {
+                        formContext: "Local_Bank_Demo_Form",
+                        fieldName,
+                        value,
+                        behavior: {
+                            keystrokesCount: inputState[fieldName].keystrokes.length,
+                            deletionsCount: inputState[fieldName].deletions,
+                            pastesCount: inputState[fieldName].pastes,
+                            timeToCompleteMs,
+                            cps: parseFloat(cps)
+                        }
+                    };
+
+                    fetch("http://localhost:8000/api/analyze", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        console.log("FAISS Result: ", data);
+                        if (data && data.riskLevel === "HIGH" || data.riskLevel === "MEDIUM") {
+                            showWarning(target, data.message);
+                        } else {
+                            clearWarning(target);
+                        }
+                    })
+                    .catch(e => console.error("FastAPI backend must be running on port 8000: ", e));
+
+                }, 1000); // Wait 1 second after typing stops before firing API
+            }
+        });
+
+        document.addEventListener("paste", (event) => {
+            const target = event.target;
+            if (["INPUT"].includes(target.tagName)) {
+                const fieldName = target.id;
+                if (!inputState[fieldName]) inputState[fieldName] = { keystrokes: [], deletions: 0, pastes: 0 };
+                inputState[fieldName].pastes += 1;
+            }
+        });
+    </script>
+</body>
+</html>
