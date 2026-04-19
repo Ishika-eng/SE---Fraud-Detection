@@ -1,47 +1,415 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  ShieldAlert, 
-  Users, 
-  Activity, 
-  Search, 
-  Bell, 
-  Settings, 
-  LogOut,
-  AlertTriangle,
-  ChevronRight
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  ShieldAlert, Users, Activity, Search, Bell,
+  Settings, LogOut, AlertTriangle, ChevronRight,
+  CheckCircle, XCircle, Clock, Download, RefreshCw
 } from 'lucide-react';
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [liveAlerts, setLiveAlerts] = useState([]);
-  const [scannedToday, setScannedToday] = useState(0);
+const API = "http://localhost:8000";
+
+// ── Auth helpers ─────────────────────────────────────────────────────────────
+
+function getToken() { return localStorage.getItem("fg_token"); }
+function setToken(t) { localStorage.setItem("fg_token", t); }
+function clearToken() { localStorage.removeItem("fg_token"); }
+
+function authHeaders(extra = {}) {
+  return { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}`, ...extra };
+}
+
+// ── Login Page ────────────────────────────────────────────────────────────────
+
+function LoginPage({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!res.ok) { setError("Invalid credentials"); return; }
+      const data = await res.json();
+      setToken(data.access_token);
+      onLogin();
+    } catch {
+      setError("Cannot reach server");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0f1115] flex items-center justify-center">
+      <div className="bg-[#161920] border border-[#2a2e39] rounded-2xl p-10 w-full max-w-md shadow-2xl">
+        <div className="flex items-center gap-3 text-red-500 font-bold text-2xl mb-8">
+          <ShieldAlert size={32} />
+          <span>FraudGuard AI</span>
+        </div>
+        <h2 className="text-white text-xl font-bold mb-1">Officer Login</h2>
+        <p className="text-gray-500 text-sm mb-8">Compliance Dashboard — Authorised Personnel Only</p>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="text-gray-400 text-sm font-semibold block mb-2">Username</label>
+            <input
+              type="text" value={username} onChange={e => setUsername(e.target.value)} required
+              className="w-full bg-[#0f1115] border border-[#2a2e39] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500/50 transition-all"
+            />
+          </div>
+          <div>
+            <label className="text-gray-400 text-sm font-semibold block mb-2">Password</label>
+            <input
+              type="password" value={password} onChange={e => setPassword(e.target.value)} required
+              className="w-full bg-[#0f1115] border border-[#2a2e39] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500/50 transition-all"
+            />
+          </div>
+          {error && <p className="text-red-400 text-sm font-semibold">{error}</p>}
+          <button
+            type="submit" disabled={loading}
+            className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold py-3 rounded-lg transition-all"
+          >
+            {loading ? "Signing in…" : "Sign In"}
+          </button>
+        </form>
+        <p className="text-gray-600 text-xs mt-6 text-center">Default: admin / admin123</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Risk badge ────────────────────────────────────────────────────────────────
+
+function RiskBadge({ level }) {
+  const styles = {
+    HIGH: "bg-red-500/10 text-red-500 border border-red-500/20",
+    MEDIUM: "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20",
+    LOW: "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20",
+  };
+  return (
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest ${styles[level] || styles.LOW}`}>
+      {level}
+    </span>
+  );
+}
+
+// ── Live Monitor Tab ──────────────────────────────────────────────────────────
+
+function LiveMonitorTab() {
+  const [alerts, setAlerts] = useState([]);
+  const [riskFilter, setRiskFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [exporting, setExporting] = useState(false);
+
+  const fetchAlerts = useCallback(() => {
+    const params = new URLSearchParams({ limit: 100 });
+    if (riskFilter) params.append("risk_level", riskFilter);
+    if (search) params.append("search", search);
+
+    fetch(`${API}/api/admin/alerts?${params}`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(setAlerts)
+      .catch(() => {});
+  }, [riskFilter, search]);
 
   useEffect(() => {
-    // Polling FAISS DB via FastAPI every 2 seconds
-    const interval = setInterval(() => {
-        fetch("http://localhost:8000/api/alerts")
-          .then(res => res.json())
-          .then(data => {
-            // Update table
-            setLiveAlerts(data);
-            
-            // Recompute stats
-            const highRiskCount = data.filter(d => d.riskLevel === "HIGH" || d.riskLevel === "MEDIUM").length;
-            setScannedToday(data.length);
-
-            // Update DOM counters directly for immediate reactivity without heavy re-renders
-            const highRiskEl = document.getElementById("high-risk-counter");
-            if(highRiskEl) highRiskEl.innerText = highRiskCount;
-          })
-          .catch(e => console.error(e));
-    }, 2000);
-
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 3000);
     return () => clearInterval(interval);
+  }, [fetchAlerts]);
+
+  async function handleExport() {
+    setExporting(true);
+    const params = new URLSearchParams();
+    if (riskFilter) params.append("risk_level", riskFilter);
+    if (search) params.append("search", search);
+    try {
+      const res = await fetch(`${API}/api/admin/alerts/export?${params}`, { headers: authHeaders() });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "fraud_alerts.csv"; a.click();
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const highCount = alerts.filter(a => a.riskLevel === "HIGH" || a.riskLevel === "MEDIUM").length;
+  const avgLatency = alerts.length ? (alerts.reduce((s, a) => s + (a.latencyMs || 0), 0) / alerts.length).toFixed(1) : 0;
+
+  return (
+    <div>
+      {/* Metrics */}
+      <div className="grid grid-cols-3 gap-6 mb-8">
+        {[
+          { label: "TOTAL SCANNED", value: alerts.length, color: "blue" },
+          { label: "HIGH RISK DETECTIONS", value: highCount, color: "red" },
+          { label: "AVG LATENCY", value: `${avgLatency}ms`, color: "emerald" },
+        ].map(({ label, value, color }) => (
+          <div key={label} className={`bg-[#161920] border border-[#2a2e39] rounded-2xl p-6 hover:border-${color}-500/30 transition-all`}>
+            <h3 className="text-gray-400 font-semibold mb-1 text-sm tracking-wide">{label}</h3>
+            <div className={`text-4xl font-bold text-${color === "red" ? "red-400" : "white"}`}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters + Export */}
+      <div className="flex items-center gap-4 mb-4">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search value or field…"
+            className="w-full bg-[#0f1115] border border-[#2a2e39] rounded-lg py-2 pl-9 pr-4 text-sm text-white focus:outline-none focus:border-red-500/50"
+          />
+        </div>
+        <select
+          value={riskFilter} onChange={e => setRiskFilter(e.target.value)}
+          className="bg-[#0f1115] border border-[#2a2e39] rounded-lg px-4 py-2 text-sm text-white focus:outline-none"
+        >
+          <option value="">All Risk Levels</option>
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="LOW">LOW</option>
+        </select>
+        <button
+          onClick={handleExport} disabled={exporting}
+          className="flex items-center gap-2 bg-[#161920] border border-[#2a2e39] hover:border-emerald-500/40 text-gray-300 hover:text-emerald-400 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+        >
+          <Download size={15} /> {exporting ? "Exporting…" : "Export CSV"}
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-[#161920] border border-[#2a2e39] rounded-2xl overflow-hidden">
+        <div className="p-5 border-b border-[#2a2e39] flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          <h2 className="text-lg font-bold text-gray-100">Live Alert Feed</h2>
+        </div>
+        <table className="w-full text-left">
+          <thead className="text-xs bg-[#0f1115] text-gray-400 font-bold tracking-wider">
+            <tr>
+              <th className="px-6 py-4 uppercase">Value</th>
+              <th className="px-6 py-4 uppercase">Field</th>
+              <th className="px-6 py-4 uppercase">Risk</th>
+              <th className="px-6 py-4 uppercase">Similarity</th>
+              <th className="px-6 py-4 uppercase">Time</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#2a2e39]">
+            {alerts.length === 0 && (
+              <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No entries yet…</td></tr>
+            )}
+            {alerts.map(a => (
+              <tr key={a.id} className="hover:bg-[#1a1d24] transition-colors">
+                <td className="px-6 py-4 font-bold text-gray-200">{a.value || "—"}</td>
+                <td className="px-6 py-4 text-xs text-gray-500">{a.fieldName}</td>
+                <td className="px-6 py-4"><RiskBadge level={a.riskLevel} /></td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 h-1.5 bg-[#2a2e39] rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${(a.similarityScore || 0) > 80 ? "bg-red-500" : (a.similarityScore || 0) > 50 ? "bg-yellow-500" : "bg-emerald-500"}`}
+                        style={{ width: `${a.similarityScore || 0}%` }} />
+                    </div>
+                    <span className="text-sm text-gray-300">{(a.similarityScore || 0).toFixed(1)}%</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-400">
+                  {a.timestamp ? new Date(a.timestamp * 1000).toLocaleTimeString() : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Review Queue Tab ──────────────────────────────────────────────────────────
+
+function ReviewQueueTab() {
+  const [cases, setCases] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("pending");
+  const [loading, setLoading] = useState(false);
+  const [note, setNote] = useState({});
+
+  const fetchQueue = useCallback(() => {
+    fetch(`${API}/api/admin/review-queue?status=${statusFilter}`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(setCases)
+      .catch(() => {});
+  }, [statusFilter]);
+
+  useEffect(() => { fetchQueue(); }, [fetchQueue]);
+
+  async function decide(caseId, action) {
+    setLoading(true);
+    await fetch(`${API}/api/admin/review-queue/${caseId}/${action}`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ officer_note: note[caseId] || "" }),
+    });
+    setLoading(false);
+    fetchQueue();
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white mb-1">Officer Review Queue</h1>
+          <p className="text-gray-500 text-sm">HIGH risk submissions awaiting human decision (SR-1, BR-4)</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+            className="bg-[#0f1115] border border-[#2a2e39] rounded-lg px-4 py-2 text-sm text-white focus:outline-none">
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <button onClick={fetchQueue} className="p-2 bg-[#161920] border border-[#2a2e39] rounded-lg text-gray-400 hover:text-white transition-all">
+            <RefreshCw size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {cases.length === 0 && (
+          <div className="bg-[#161920] border border-[#2a2e39] rounded-2xl p-10 text-center text-gray-500">
+            No {statusFilter} cases
+          </div>
+        )}
+        {cases.map(c => (
+          <div key={c.id} className="bg-[#161920] border border-[#2a2e39] rounded-2xl p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-3">
+                  <RiskBadge level={c.riskLevel} />
+                  <span className="text-xs text-gray-500">{c.id}</span>
+                  <span className="text-xs text-gray-500">{c.timestamp ? new Date(c.timestamp * 1000).toLocaleString() : ""}</span>
+                </div>
+                <p className="text-white font-bold mb-1">{c.value || "—"} <span className="text-gray-500 font-normal text-sm">({c.fieldName})</span></p>
+                <p className="text-yellow-400 text-sm mb-3">{c.explanation}</p>
+                {c.officerNote && <p className="text-gray-400 text-xs italic">Note: {c.officerNote}</p>}
+              </div>
+
+              {statusFilter === "pending" && (
+                <div className="flex flex-col gap-2 min-w-[220px]">
+                  <input
+                    placeholder="Officer note (optional)"
+                    value={note[c.id] || ""}
+                    onChange={e => setNote(n => ({ ...n, [c.id]: e.target.value }))}
+                    className="bg-[#0f1115] border border-[#2a2e39] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => decide(c.id, "approve")} disabled={loading}
+                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg py-2 text-sm font-bold transition-all">
+                      <CheckCircle size={14} /> Approve
+                    </button>
+                    <button onClick={() => decide(c.id, "reject")} disabled={loading}
+                      className="flex-1 flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg py-2 text-sm font-bold transition-all">
+                      <XCircle size={14} /> Reject
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {statusFilter !== "pending" && (
+                <span className={`text-sm font-bold ${statusFilter === "approved" ? "text-emerald-400" : "text-red-400"}`}>
+                  {statusFilter.toUpperCase()}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Thresholds Tab ────────────────────────────────────────────────────────────
+
+function ThresholdsTab() {
+  const [high, setHigh] = useState(85);
+  const [medium, setMedium] = useState(60);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch(`${API}/api/admin/thresholds`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(d => { setHigh(d.high_risk_threshold); setMedium(d.medium_risk_threshold); })
+      .catch(() => {});
   }, []);
+
+  async function handleSave() {
+    setError("");
+    const res = await fetch(`${API}/api/admin/thresholds`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify({ high_risk_threshold: high, medium_risk_threshold: medium }),
+    });
+    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500); }
+    else { const d = await res.json(); setError(d.detail || "Error saving"); }
+  }
+
+  return (
+    <div className="max-w-xl">
+      <h1 className="text-2xl font-bold text-white mb-1">Risk Thresholds</h1>
+      <p className="text-gray-500 text-sm mb-8">Configurable similarity thresholds for fraud classification (FR-20, BR-2)</p>
+
+      <div className="bg-[#161920] border border-[#2a2e39] rounded-2xl p-8 space-y-8">
+        {[
+          { label: "HIGH Risk Threshold", value: high, setter: setHigh, color: "red", desc: "Above this similarity % → flagged for officer review" },
+          { label: "MEDIUM Risk Threshold", value: medium, setter: setMedium, color: "yellow", desc: "Above this similarity % → warning shown to officer" },
+        ].map(({ label, value, setter, color, desc }) => (
+          <div key={label}>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-gray-300 font-semibold">{label}</label>
+              <span className={`text-${color}-400 font-black text-xl`}>{value}%</span>
+            </div>
+            <input type="range" min={1} max={99} value={value} onChange={e => setter(Number(e.target.value))}
+              className="w-full accent-red-500" />
+            <p className="text-gray-500 text-xs mt-1">{desc}</p>
+          </div>
+        ))}
+
+        {error && <p className="text-red-400 text-sm font-semibold">{error}</p>}
+
+        <button onClick={handleSave}
+          className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-lg transition-all">
+          {saved ? "✓ Saved" : "Save Thresholds"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+
+export default function App() {
+  const [loggedIn, setLoggedIn] = useState(!!getToken());
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  function handleLogout() { clearToken(); setLoggedIn(false); }
+
+  if (!loggedIn) return <LoginPage onLogin={() => setLoggedIn(true)} />;
+
+  const tabs = [
+    { id: "dashboard", label: "Live Monitor", icon: Activity },
+    { id: "review", label: "Review Queue", icon: Clock },
+    { id: "settings", label: "Thresholds", icon: Settings },
+  ];
 
   return (
     <div className="flex h-screen bg-[#0f1115] text-white overflow-hidden font-sans">
-      
       {/* Sidebar */}
       <aside className="w-64 bg-[#161920] border-r border-[#2a2e39] flex flex-col justify-between">
         <div className="p-6">
@@ -49,166 +417,43 @@ export default function App() {
             <ShieldAlert size={28} />
             <span>FraudGuard AI</span>
           </div>
-          
-          <nav className="space-y-4">
-            <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'text-gray-400 hover:bg-[#2a2e39] hover:text-white'}`}>
-              <Activity size={20} />
-              <span className="font-semibold">Live Monitor</span>
-            </button>
-            <button onClick={() => setActiveTab('users')} className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all ${activeTab === 'users' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'text-gray-400 hover:bg-[#2a2e39] hover:text-white'}`}>
-              <Users size={20} />
-              <span className="font-semibold">Identity Vault</span>
-            </button>
-            <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all ${activeTab === 'settings' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'text-gray-400 hover:bg-[#2a2e39] hover:text-white'}`}>
-              <Settings size={20} />
-              <span className="font-semibold">Thresholds</span>
-            </button>
+          <nav className="space-y-3">
+            {tabs.map(({ id, label, icon: Icon }) => (
+              <button key={id} onClick={() => setActiveTab(id)}
+                className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all ${activeTab === id ? "bg-red-500/10 text-red-500 border border-red-500/20" : "text-gray-400 hover:bg-[#2a2e39] hover:text-white"}`}>
+                <Icon size={20} />
+                <span className="font-semibold">{label}</span>
+              </button>
+            ))}
           </nav>
         </div>
-        
         <div className="p-6 border-t border-[#2a2e39]">
-          <button className="w-full flex items-center gap-4 px-4 py-3 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">
+          <button onClick={handleLogout}
+            className="w-full flex items-center gap-4 px-4 py-3 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">
             <LogOut size={20} />
             <span className="font-semibold">Sign Out</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main */}
       <main className="flex-1 flex flex-col h-full bg-[#0a0c10]">
-        
-        {/* Top Navbar */}
-        <header className="h-20 border-b border-[#2a2e39] flex items-center justify-between px-10 bg-[#161920]">
-          <div className="relative w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search identities, emails, IPs..." 
-              className="w-full bg-[#0f1115] border border-[#2a2e39] rounded-full py-2.5 pl-12 pr-4 text-sm focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all text-white placeholder-gray-500"
-            />
-          </div>
-          
-          <div className="flex items-center gap-6">
-            <div className="relative cursor-pointer hover:text-red-500 transition-colors">
-              <Bell size={20} className="text-gray-400 hover:text-white transition-colors" />
-              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center font-bold">2</span>
+        <header className="h-16 border-b border-[#2a2e39] flex items-center justify-between px-10 bg-[#161920]">
+          <h2 className="font-bold text-gray-300 text-lg">
+            {tabs.find(t => t.id === activeTab)?.label}
+          </h2>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 border border-gray-500 flex items-center justify-center font-bold text-sm">
+              AD
             </div>
-            <div className="flex items-center gap-3 cursor-pointer pl-6 border-l border-[#2a2e39]">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 border border-gray-500 flex items-center justify-center font-bold text-sm shadow-lg">
-                AD
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-bold text-gray-200">Admin User</span>
-                <span className="text-xs text-gray-500 font-medium tracking-wide">COMPLIANCE DEPT</span>
-              </div>
-            </div>
+            <span className="text-sm text-gray-400 font-medium">Compliance Officer</span>
           </div>
         </header>
 
-        {/* Dashboard Area */}
-        <div className="flex-1 overflow-y-auto p-10 scrollbar-hide">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 mb-2">
-                Real-Time Monitored Forms
-              </h1>
-              <p className="text-gray-400 text-sm font-medium">Protecting your onboarding pipelines instantly via embedded ML similarities.</p>
-            </div>
-            <button className="bg-red-600 hover:bg-red-500 text-white px-5 py-2.5 rounded-lg text-sm font-bold tracking-wide transition-all shadow-[0_0_15px_rgba(220,38,38,0.4)] flex items-center gap-2">
-              <AlertTriangle size={16} /> Generate Report
-            </button>
-          </div>
-
-          {/* Metrics */}
-          <div className="grid grid-cols-3 gap-6 mb-10">
-            <div className="bg-[#161920] border border-[#2a2e39] rounded-2xl p-6 relative overflow-hidden group hover:border-blue-500/30 transition-all cursor-pointer">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl group-hover:bg-blue-500/10 transition-all"></div>
-              <h3 className="text-gray-400 font-semibold mb-1 text-sm tracking-wide">TOTAL SCANNED TODAY</h3>
-              <div className="text-4xl font-bold text-white mb-2">{scannedToday === 0 ? "12,492" : scannedToday}</div>
-              <p className="text-xs text-blue-400 font-bold flex items-center gap-1">+2.4% <span className="text-gray-500 font-medium">vs yesterday</span></p>
-            </div>
-            
-            <div className="bg-[#161920] border border-[#2a2e39] rounded-2xl p-6 relative overflow-hidden group hover:border-red-500/30 transition-all cursor-pointer shadow-[0_0_20px_rgba(220,38,38,0.05)]">
-               <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-3xl group-hover:bg-red-500/10 transition-all"></div>
-              <h3 className="text-gray-400 font-semibold mb-1 text-sm tracking-wide">HIGH RISK DETECTIONS</h3>
-              <div className="text-4xl font-bold text-red-400 mb-2" id="high-risk-counter">0</div>
-              <p className="text-xs text-red-400 font-bold flex items-center gap-1">+14% <span className="text-gray-500 font-medium">vs yesterday</span></p>
-            </div>
-
-            <div className="bg-[#161920] border border-[#2a2e39] rounded-2xl p-6 relative overflow-hidden group hover:border-emerald-500/30 transition-all cursor-pointer">
-               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-all"></div>
-              <h3 className="text-gray-400 font-semibold mb-1 text-sm tracking-wide">AVG. LATENCY</h3>
-              <div className="text-4xl font-bold text-white mb-2">42<span className="text-lg text-gray-500 ml-1">ms</span></div>
-              <p className="text-xs text-emerald-400 font-bold flex items-center gap-1">Fast <span className="text-gray-500 font-medium">similarity search speeds</span></p>
-            </div>
-          </div>
-
-          {/* Live Alert Table */}
-          <div className="bg-[#161920] border border-[#2a2e39] rounded-2xl overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-[#2a2e39] flex items-center justify-between bg-[#13151b]">
-              <h2 className="text-lg font-bold text-gray-100 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                Recent Suspicious Entries
-              </h2>
-              <button className="text-sm text-gray-400 font-bold hover:text-white transition-colors">View All Archive</button>
-            </div>
-            <div className="w-full">
-              <table className="w-full text-left">
-                <thead className="text-xs bg-[#0f1115] text-gray-400 font-bold tracking-wider rounded-t-lg">
-                  <tr>
-                    <th className="px-6 py-4 uppercase">Identity Submitted</th>
-                    <th className="px-6 py-4 uppercase">Risk Score</th>
-                    <th className="px-6 py-4 uppercase">AI Similarity</th>
-                    <th className="px-6 py-4 uppercase">Timestamp</th>
-                    <th className="px-6 py-4 uppercase text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#2a2e39]">
-                  {liveAlerts.length === 0 && (
-                    <tr><td colSpan="5" className="px-6 py-8 text-center text-gray-500 font-bold">Waiting for entries...</td></tr>
-                  )}
-                  {liveAlerts.map((alert) => (
-                    <tr key={alert.id} className="hover:bg-[#1a1d24] transition-colors group cursor-pointer">
-                      <td className="px-6 py-5">
-                        <div className="font-bold text-gray-200 mb-0.5">{alert.value || "Anonymous"}</div>
-                        <div className="text-xs text-gray-500 font-medium">Field: {alert.fieldName}</div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest ${
-                          alert.riskLevel === 'HIGH' ? 'bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_10px_rgba(220,38,38,0.2)]' :
-                          alert.riskLevel === 'MEDIUM' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' :
-                          'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                        }`}>
-                          {alert.riskLevel}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5">
-                         <div className="flex items-center gap-3">
-                            <div className="w-24 h-1.5 bg-[#2a2e39] rounded-full overflow-hidden">
-                              <div 
-                                className={`h-full rounded-full ${ (alert.similarityScore || 0) > 80 ? 'bg-red-500' : (alert.similarityScore || 0) > 50 ? 'bg-yellow-500' : 'bg-emerald-500'}`} 
-                                style={{ width: `${alert.similarityScore || 0}%` }}>
-                              </div>
-                            </div>
-                            <span className="text-sm font-bold text-gray-300">{(alert.similarityScore || 0).toFixed(1)}%</span>
-                         </div>
-                      </td>
-                      <td className="px-6 py-5 text-sm flex flex-col items-start gap-1">
-                          <span className="text-sm font-bold text-gray-400">{alert.timestamp ? new Date(alert.timestamp * 1000).toLocaleTimeString() : 'N/A'}</span>
-                          <span className="text-xs text-gray-500 font-medium">Latency: {(alert.latencyMs || 0).toFixed(1)}ms</span>
-                      </td>
-                      <td className="px-6 py-5 text-right">
-                        <button className="text-gray-400 group-hover:text-white transition-colors p-2 hover:bg-[#2a2e39] rounded-lg">
-                          <ChevronRight size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
+        <div className="flex-1 overflow-y-auto p-8">
+          {activeTab === "dashboard" && <LiveMonitorTab />}
+          {activeTab === "review" && <ReviewQueueTab />}
+          {activeTab === "settings" && <ThresholdsTab />}
         </div>
       </main>
     </div>

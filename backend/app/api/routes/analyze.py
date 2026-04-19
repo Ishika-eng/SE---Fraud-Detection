@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Request
 from app.models.schemas import InputPayload, SimilarityResult
 from app.services.ml_service import ml_engine
 from app.core.db import db
 from app.core.auth import verify_api_key
+from app.core.limiter import limiter
 import time
 import uuid
 
@@ -10,7 +11,6 @@ router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
 def _mask_sensitive(value: str, field_name: str) -> str:
-    """Mask GovID-like values before writing to logs/DB."""
     field_lower = field_name.lower()
     if any(t in field_lower for t in ("gov", "id", "ssn", "aadhaar", "pan", "passport")):
         if len(value) > 4:
@@ -20,16 +20,13 @@ def _mask_sensitive(value: str, field_name: str) -> str:
 
 
 @router.post("/analyze", response_model=SimilarityResult)
-async def analyze_input(payload: InputPayload):
-    """
-    REAL-TIME MONITORING: Visible on Dashboard.
-    """
+@limiter.limit("60/minute")
+async def analyze_input(request: Request, payload: InputPayload):
+    """FR-1/FR-2: Real-time field monitoring — rate limited to 60 req/min per IP."""
     start_time = time.time()
-    # UNIFIED RISK SCORING: Identity + Behavior
     result = ml_engine.evaluate_risk(payload.value, payload.behavior.dict(), category=payload.fieldName)
     latency_ms = (time.time() - start_time) * 1000
 
-    # MONITORING LOG (Always stored for the dashboard)
     alert_record = {
         "id": str(uuid.uuid4()),
         "fieldName": payload.fieldName,
@@ -40,29 +37,31 @@ async def analyze_input(payload: InputPayload):
         "latencyMs": latency_ms,
         "behavior": payload.behavior.dict(),
         "timestamp": time.time(),
-        "explanation": result["message"], # New field for detailed reasoning
+        "explanation": result["message"],
         "status": "monitored"
     }
     await db.insert_alert(alert_record)
 
     return SimilarityResult(
         riskLevel=result["riskLevel"],
-        message=result["message"], # This now contains the explanation
+        message=result["message"],
         similarityScore=result["similarityScore"],
         matchedValue=result["matchedValue"]
     )
 
+
 @router.post("/submit")
-async def submit_identity(payload: InputPayload):
+@limiter.limit("10/minute")
+async def submit_identity(request: Request, payload: InputPayload):
     """
-    FINAL SUBMISSION: Only unique data enters the IDENTITIES registry.
+    Final submission check.
+    SR-1/SR-2/BR-4: HIGH risk → officer review queue, NOT auto-rejected.
+    LOW/MEDIUM → identity committed immediately.
     """
-    # COMPOSITE CHECK: Check Name + Email + GovID
     details = payload.identityDetails or {"FullName": payload.value}
     result = ml_engine.evaluate_composite_risk(details)
-    
-    # 1. LOG THE ATTEMPT FOR THE MONITORING DASHBOARD
-    attempt_record = {
+
+    base_record = {
         "id": str(uuid.uuid4()),
         "fieldName": payload.fieldName,
         "value": _mask_sensitive(payload.value, payload.fieldName),
@@ -70,27 +69,29 @@ async def submit_identity(payload: InputPayload):
         "riskLevel": result["riskLevel"],
         "similarityScore": result["similarityScore"],
         "timestamp": time.time(),
-        "status": "submit_attempt"
     }
-    await db.insert_alert(attempt_record)
 
     if result["riskLevel"] == "HIGH":
-        raise HTTPException(status_code=400, detail=f"Submission rejected: {result['message']}")
+        # Queue for officer review — never auto-reject (SR-1)
+        review_case = {
+            **base_record,
+            "status": "pending",
+            "identityDetails": details,
+            "explanation": result["message"],
+        }
+        await db.insert_review_case(review_case)
+        await db.insert_alert({**base_record, "status": "flagged_for_review", "explanation": result["message"]})
 
-    # 2. COMMIT TO ML INDEX (Full composite bundle)
+        return {
+            "status": "pending_review",
+            "message": "Your submission has been flagged for officer review. You will be contacted shortly.",
+            "riskLevel": "HIGH",
+            "caseId": base_record["id"]
+        }
+
+    # LOW or MEDIUM — commit identity
     ml_engine.add_identity(details)
-
-    # 3. COMMIT TO THE 'OFFICIAL' IDENTITIES DATABASE
-    official_identity = {
-        "id": str(uuid.uuid4()),
-        "name": payload.value,
-        "timestamp": time.time()
-    }
-    # This officially populates the identities collection!
-    await db.insert_identity(official_identity)
+    await db.insert_identity({"id": base_record["id"], "name": payload.value, "timestamp": time.time()})
+    await db.insert_alert({**base_record, "status": "submit_approved"})
 
     return {"status": "success", "message": "Identity registered successfully"}
-
-@router.get("/alerts")
-async def get_alerts(limit: int = 50):
-    return await db.get_recent_alerts(limit=limit)

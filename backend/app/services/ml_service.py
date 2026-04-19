@@ -26,6 +26,10 @@ class MLEngine:
         self.vector_store = {}  # Category -> {ID -> Value}
         self.gov_id_hashes: set = set()  # SHA-256 hashes of registered GovIDs
 
+        # Thresholds loaded from settings — admin-configurable at runtime (FR-20, BR-2)
+        self.high_threshold: float = settings.HIGH_RISK_THRESHOLD
+        self.medium_threshold: float = settings.MEDIUM_RISK_THRESHOLD
+
         if not os.path.exists(INDEX_DIR):
             os.makedirs(INDEX_DIR)
 
@@ -53,6 +57,11 @@ class MLEngine:
                 self.gov_id_hashes = set(json.load(f))
         else:
             self.gov_id_hashes = set()
+
+    def update_thresholds(self, high: float, medium: float):
+        self.high_threshold = high
+        self.medium_threshold = medium
+        logger.info(f"Thresholds updated — HIGH: {high}%, MEDIUM: {medium}%")
 
     def _hash_gov_id(self, gov_id: str) -> str:
         """SHA-256 of normalized GovID — GovID plaintext is never stored."""
@@ -105,13 +114,13 @@ class MLEngine:
         risk_level = "LOW"
         explanation = "Identity is unique."
 
-        if name_sim > 85.0 and email_sim > 85.0:
+        if name_sim > self.high_threshold and email_sim > self.high_threshold:
             risk_level = "HIGH"
             explanation = f"REJECTED: Duplicate identity detected (Name {name_sim:.1f}%, Email {email_sim:.1f}%)."
-        elif email_sim > 85.0:
+        elif email_sim > self.high_threshold:
             risk_level = "HIGH"
             explanation = f"SUSPICIOUS: Email already registered ({email_sim:.1f}% match) to a different name."
-        elif name_sim > 85.0:
+        elif name_sim > self.high_threshold:
             risk_level = "MEDIUM"
             explanation = f"SHARED NAME: Name matches ({name_sim:.1f}%) but identifiers differ. Proceed with caution."
 
@@ -181,9 +190,9 @@ class MLEngine:
             cat_store = self.vector_store.get(category, {})
             closest_match = cat_store.get(str(indices[0][0]))
 
-            if max_similarity > 85.0:
+            if max_similarity > self.high_threshold:
                 risk_level = "HIGH"
-            elif max_similarity > 60.0:
+            elif max_similarity > self.medium_threshold:
                 risk_level = "MEDIUM"
 
         return {

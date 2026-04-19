@@ -9,9 +9,22 @@ class Settings(BaseSettings):
     MONGODB_URL: str = "mongodb://localhost:27017"
     DATABASE_NAME: str = "fraud_detection_db"
     MODEL_NAME: str = "all-MiniLM-L6-v2"
-    # Set this in .env — never leave the default in production
+
+    # Extension auth — set in .env before deploying
     API_KEY: str = "dev-key-change-in-production"
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+
+    # Dashboard admin credentials — set in .env before deploying
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD_HASH: str = "$2b$12$KIXbMsVqBk3fjAjmE.5hOuCeGRkYfVyrkBHuqWBMD3FolMrLaKYsG"  # "admin123"
+
+    # JWT settings
+    JWT_SECRET: str = "jwt-secret-change-in-production"
+    JWT_EXPIRE_MINUTES: int = 480  # 8-hour officer shift
+
+    # Risk thresholds — configurable by admin (FR-20, BR-2)
+    HIGH_RISK_THRESHOLD: float = 85.0
+    MEDIUM_RISK_THRESHOLD: float = 60.0
 
     class Config:
         case_sensitive = True
@@ -20,4 +33,6 @@ class Settings(BaseSettings):
 settings = Settings()
 
 if settings.API_KEY == "dev-key-change-in-production":
-    logger.warning("SECURITY: API_KEY is using the default development value. Set API_KEY in .env before deploying.")
+    logger.warning("SECURITY: API_KEY is using the default value. Set API_KEY in .env before deploying.")
+if settings.JWT_SECRET == "jwt-secret-change-in-production":
+    logger.warning("SECURITY: JWT_SECRET is using the default value. Set JWT_SECRET in .env before deploying.")

@@ -5,3 +5,7 @@ pydantic
 sentence-transformers
 faiss-cpu
 python-dotenv
+slowapi
+python-jose[cryptography]
+passlib[bcrypt]
+pydantic-settings

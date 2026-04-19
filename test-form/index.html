@@ -91,16 +91,17 @@
 
             fetch("http://localhost:8000/api/submit", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", "X-API-Key": "dev-key-change-in-production" },
                 body: JSON.stringify(payload)
             })
             .then(res => res.json())
             .then(data => {
-                // If it's an error response from FastAPI (detail field)
                 if (data.detail) {
                    showMessage(data.detail, true);
                 } else if (data.status === "success") {
                     showMessage("Registration Successful! Identity saved.", false);
+                } else if (data.status === "pending_review") {
+                    showMessage("Your submission has been flagged for officer review. You will be contacted shortly.", false);
                 } else {
                     showMessage("Submission Error.", true);
                 }
@@ -171,7 +172,7 @@
 
                     fetch("http://localhost:8000/api/analyze", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: { "Content-Type": "application/json", "X-API-Key": "dev-key-change-in-production" },
                         body: JSON.stringify(payload)
                     })
                     .then(res => res.json())
