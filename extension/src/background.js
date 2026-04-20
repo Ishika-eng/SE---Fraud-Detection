@@ -27,6 +27,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    // Handle final form submission
+    if (request.type === "SUBMIT_IDENTITY") {
+        fetch("http://localhost:8000/api/submit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
+            body: JSON.stringify(request.payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data?.riskLevel === "HIGH" || data?.status === "pending_review") {
+                stats.risks += 1;
+                broadcastStats();
+            }
+            sendResponse({ result: data });
+        })
+        .catch(err => sendResponse({ error: err.toString() }));
+        return true;
+    }
+
     // Handle input stream
     if (request.type === "ANALYZE_INPUT") {
         if (!isMonitoring) {
