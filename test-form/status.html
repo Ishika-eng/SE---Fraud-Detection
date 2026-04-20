@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Status — PM-KISAN</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+        .gov-header { background: #003087; color: white; }
+        .gov-header-top { background: #00205b; padding: 8px 40px; font-size: 11px; color: #a0b4d6; }
+        .gov-header-main { padding: 14px 40px; display: flex; align-items: center; gap: 20px; }
+        .emblem { width: 52px; height: 52px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+        .gov-title h1 { font-size: 20px; font-weight: 700; }
+        .gov-title p  { font-size: 12px; color: #a0b4d6; margin-top: 2px; }
+        .gov-nav { background: #004aad; display: flex; padding: 0 40px; }
+        .gov-nav a { color: #cdd9ee; text-decoration: none; font-size: 13px; padding: 10px 16px; display: block; }
+        .gov-nav a:hover, .gov-nav a.active { background: rgba(255,255,255,0.12); color: white; }
+
+        .container { max-width: 640px; margin: 40px auto; padding: 0 20px 60px; }
+        .breadcrumb { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+        .breadcrumb a { color: #003087; text-decoration: none; }
+
+        .card { background: white; border-radius: 4px; border: 1px solid #d1d9e0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
+        .card-header { background: #003087; color: white; padding: 18px 28px; }
+        .card-header h2 { font-size: 16px; font-weight: 600; }
+        .card-header p { font-size: 12px; color: #a0b4d6; margin-top: 2px; }
+        .card-body { padding: 28px; }
+
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .input-group input { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px; color: #111827; }
+        .input-group input:focus { outline: none; border-color: #003087; box-shadow: 0 0 0 3px rgba(0,48,135,0.1); }
+        .input-group .hint { font-size: 11px; color: #6b7280; margin-top: 4px; }
+
+        .btn { background: #003087; color: white; border: none; border-radius: 4px; padding: 11px 28px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+        .btn:hover:not(:disabled) { background: #004aad; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* Status result card */
+        .status-result { display: none; margin-top: 24px; border-radius: 8px; padding: 24px; border: 2px solid; }
+        .status-result.pending  { background: #fffbeb; border-color: #f59e0b; }
+        .status-result.approved { background: #f0fdf4; border-color: #22c55e; }
+        .status-result.rejected { background: #fef2f2; border-color: #ef4444; }
+
+        .status-icon { font-size: 40px; margin-bottom: 12px; }
+        .status-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+        .status-label.pending  { color: #b45309; }
+        .status-label.approved { color: #15803d; }
+        .status-label.rejected { color: #b91c1c; }
+
+        .status-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; color: #111827; }
+        .status-message { font-size: 14px; color: #374151; line-height: 1.6; margin-bottom: 16px; }
+
+        .status-meta { background: rgba(0,0,0,0.04); border-radius: 6px; padding: 12px 16px; font-size: 12px; color: #6b7280; }
+        .status-meta span { display: block; margin-bottom: 4px; }
+        .status-meta strong { color: #374151; }
+
+        .error-box { display: none; margin-top: 16px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 6px; padding: 12px 16px; font-size: 13px; color: #b91c1c; font-weight: 600; }
+
+        .back-link { display: inline-block; margin-top: 20px; font-size: 13px; color: #003087; text-decoration: none; font-weight: 600; }
+        .back-link:hover { text-decoration: underline; }
+
+        .gov-footer { background: #00205b; color: #7a93b8; text-align: center; padding: 20px; font-size: 11px; margin-top: 60px; }
+    </style>
+</head>
+<body>
+
+<header class="gov-header">
+    <div class="gov-header-top">
+        <span>Government of India — Ministry of Agriculture &amp; Farmers Welfare</span>
+    </div>
+    <div class="gov-header-main">
+        <div class="emblem">🇮🇳</div>
+        <div class="gov-title">
+            <h1>PM Kisan Samman Nidhi (PM-KISAN)</h1>
+            <p>Direct income support of ₹6,000/year to farmer families across India</p>
+        </div>
+    </div>
+    <nav class="gov-nav">
+        <a href="index.html">Registration</a>
+        <a href="#" class="active">Application Status</a>
+        <a href="#">Helpdesk</a>
+        <a href="#">About Scheme</a>
+    </nav>
+</header>
+
+<div class="container">
+    <div class="breadcrumb">
+        <a href="index.html">Home</a> &rsaquo; <a href="#">PM-KISAN</a> &rsaquo; Application Status
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Track Your Application</h2>
+            <p>Enter your reference number to view the current status of your registration.</p>
+        </div>
+        <div class="card-body">
+            <div class="input-group">
+                <label for="ref-input">Application Reference Number</label>
+                <input type="text" id="ref-input" placeholder="e.g. 0AB7E1E8-C962-4162-..." autocomplete="off" />
+                <p class="hint">Provided when you submitted your registration form</p>
+            </div>
+            <button class="btn" id="check-btn" onclick="checkStatus()">Check Status</button>
+
+            <div class="error-box" id="error-box"></div>
+
+            <div class="status-result" id="status-result">
+                <div class="status-icon" id="status-icon"></div>
+                <div class="status-label" id="status-label"></div>
+                <div class="status-title" id="status-title"></div>
+                <div class="status-message" id="status-message"></div>
+                <div class="status-meta" id="status-meta"></div>
+            </div>
+
+            <a href="index.html" class="back-link">← Back to Registration Form</a>
+        </div>
+    </div>
+</div>
+
+<footer class="gov-footer">
+    <p>Government of India &nbsp;|&nbsp; Ministry of Agriculture &amp; Farmers Welfare &nbsp;|&nbsp; pm-kisan.gov.in</p>
+    <p style="margin-top:4px;">© 2024 PM-KISAN. All rights reserved.</p>
+</footer>
+
+<script>
+    const API = "http://localhost:8000";
+
+    // Auto-fill from URL query param ?ref=...
+    const params = new URLSearchParams(window.location.search);
+    const refParam = params.get("ref");
+    if (refParam) {
+        document.getElementById("ref-input").value = refParam;
+        window.addEventListener("DOMContentLoaded", checkStatus);
+    }
+
+    async function checkStatus() {
+        const btn     = document.getElementById("check-btn");
+        const errorBox = document.getElementById("error-box");
+        const result   = document.getElementById("status-result");
+        const refInput = document.getElementById("ref-input").value.trim();
+
+        if (!refInput) {
+            showError("Please enter your reference number.");
+            return;
+        }
+
+        errorBox.style.display = "none";
+        result.style.display   = "none";
+        btn.disabled = true;
+        btn.textContent = "Checking…";
+
+        try {
+            const res  = await fetch(`${API}/api/status/${encodeURIComponent(refInput)}`);
+            const data = await res.json();
+
+            if (!res.ok) {
+                showError(data.detail || "Reference number not found.");
+                return;
+            }
+
+            renderStatus(data);
+        } catch {
+            showError("Cannot reach the verification server. Please try again later.");
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Check Status";
+        }
+    }
+
+    function renderStatus(data) {
+        const result  = document.getElementById("status-result");
+        const icons   = { pending: "⏳", approved: "✅", rejected: "❌" };
+        const labels  = { pending: "Under Review", approved: "Approved", rejected: "Not Approved" };
+        const titles  = { pending: "Application Pending", approved: "Registration Successful", rejected: "Registration Unsuccessful" };
+
+        result.className = `status-result ${data.status}`;
+
+        document.getElementById("status-icon").textContent    = icons[data.status]  || "ℹ️";
+        document.getElementById("status-label").textContent   = labels[data.status] || data.status;
+        document.getElementById("status-label").className     = `status-label ${data.status}`;
+        document.getElementById("status-title").textContent   = titles[data.status] || data.status;
+        document.getElementById("status-message").textContent = data.message;
+
+        const submittedAt = data.submitted_at
+            ? new Date(data.submitted_at * 1000).toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" })
+            : "—";
+
+        document.getElementById("status-meta").innerHTML = `
+            <span>Reference No: <strong>${data.ref}</strong></span>
+            <span>Submitted: <strong>${submittedAt}</strong></span>
+            <span>Status as of: <strong>${new Date().toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" })}</strong></span>
+        `;
+
+        result.style.display = "block";
+    }
+
+    function showError(msg) {
+        const errorBox = document.getElementById("error-box");
+        errorBox.textContent = msg;
+        errorBox.style.display = "block";
+    }
+
+    // Allow Enter key to trigger check
+    document.addEventListener("keydown", e => {
+        if (e.key === "Enter") checkStatus();
+    });
+</script>
+</body>
+</html>

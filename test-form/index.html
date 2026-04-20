@@ -482,8 +482,18 @@
                 } else if (data.status === "success") {
                     showMessage("✅ Registration Successful! You are now enrolled in PM-KISAN. Expect ₹6,000/year credited to your bank account.", "success");
                 } else if (data.status === "pending_review") {
-                    const ref = data.caseId ? data.caseId.slice(0, 8).toUpperCase() : "N/A";
-                    showMessage(`⏳ Your registration is under review. Reference No: ${ref}. You will be contacted within 5–7 working days.`, "warning");
+                    const ref     = data.caseId ? data.caseId.slice(0, 8).toUpperCase() : "N/A";
+                    const fullId  = data.caseId || "";
+                    const statusUrl = `status.html?ref=${fullId}`;
+                    messageBanner.innerHTML = `
+                        <div style="margin-bottom:6px">⏳ Your registration is under officer review.</div>
+                        <div style="margin-bottom:6px">Reference No: <strong>${ref}</strong> — keep this for your records.</div>
+                        <div>Track your application: <a href="${statusUrl}" target="_blank"
+                            style="color:#1d4ed8;text-decoration:underline;font-weight:700;">
+                            Check Application Status →</a></div>`;
+                    messageBanner.style.display = "block";
+                    messageBanner.style.backgroundColor = "#fef9c3";
+                    messageBanner.style.color = "#92400e";
                 } else {
                     showMessage("Submission error. Please try again.", "error");
                 }

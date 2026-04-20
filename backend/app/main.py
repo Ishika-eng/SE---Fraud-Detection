@@ -6,7 +6,7 @@ from app.core.config import settings
 from app.core.db import db
 from app.core.limiter import limiter
 from app.api.routes import analyze
-from app.api.routes import admin, auth_routes
+from app.api.routes import admin, auth_routes, status
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -45,6 +45,9 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Dashboard — Admin
 
 # Auth routes (no auth required)
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["Auth"])
+
+# Public applicant status check (no auth required)
+app.include_router(status.router, prefix="/api", tags=["Applicant Status"])
 
 @app.get("/health")
 async def health_check():
