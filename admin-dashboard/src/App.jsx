@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ShieldAlert, Users, Activity, Search, Bell,
   Settings, LogOut, AlertTriangle, ChevronRight,
-  CheckCircle, XCircle, Clock, Download, RefreshCw
+  CheckCircle, XCircle, Clock, Download, RefreshCw, ClipboardList
 } from 'lucide-react';
 
 const API = "http://localhost:8000";
@@ -392,6 +392,86 @@ function ThresholdsTab() {
   );
 }
 
+// ── Audit Log Tab ─────────────────────────────────────────────────────────────
+
+function AuditLogTab() {
+  const [logs, setLogs] = useState([]);
+
+  const fetchLogs = useCallback(() => {
+    fetch(`${API}/api/admin/audit-log?limit=100`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(setLogs)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 5000);
+    return () => clearInterval(interval);
+  }, [fetchLogs]);
+
+  const actionStyles = {
+    approve: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+    reject: "bg-red-500/10 text-red-400 border border-red-500/20",
+    update_thresholds: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
+    bulk_import: "bg-purple-500/10 text-purple-400 border border-purple-500/20",
+  };
+
+  function describeLog(log) {
+    if (log.action === "approve") return `Approved case ${log.case_id?.slice(0, 8)}… ${log.note ? `— "${log.note}"` : ""}`;
+    if (log.action === "reject") return `Rejected case ${log.case_id?.slice(0, 8)}… ${log.note ? `— "${log.note}"` : ""}`;
+    if (log.action === "update_thresholds") return `Thresholds updated — HIGH: ${log.high}%, MEDIUM: ${log.medium}%`;
+    if (log.action === "bulk_import") return `Bulk import — ${log.count} identities added to registry`;
+    return log.action;
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white mb-1">Audit Log</h1>
+          <p className="text-gray-500 text-sm">Immutable record of all officer actions (FR-28, BR-6)</p>
+        </div>
+        <button onClick={fetchLogs} className="p-2 bg-[#161920] border border-[#2a2e39] rounded-lg text-gray-400 hover:text-white transition-all">
+          <RefreshCw size={16} />
+        </button>
+      </div>
+
+      <div className="bg-[#161920] border border-[#2a2e39] rounded-2xl overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="text-xs bg-[#0f1115] text-gray-400 font-bold tracking-wider">
+            <tr>
+              <th className="px-6 py-4 uppercase">Action</th>
+              <th className="px-6 py-4 uppercase">Officer</th>
+              <th className="px-6 py-4 uppercase">Details</th>
+              <th className="px-6 py-4 uppercase">Time</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#2a2e39]">
+            {logs.length === 0 && (
+              <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">No audit entries yet…</td></tr>
+            )}
+            {logs.map(log => (
+              <tr key={log.id} className="hover:bg-[#1a1d24] transition-colors">
+                <td className="px-6 py-4">
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest ${actionStyles[log.action] || "bg-gray-500/10 text-gray-400 border border-gray-500/20"}`}>
+                    {log.action?.toUpperCase()}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-300 font-semibold">{log.officer || "—"}</td>
+                <td className="px-6 py-4 text-sm text-gray-400">{describeLog(log)}</td>
+                <td className="px-6 py-4 text-sm text-gray-500">
+                  {log.timestamp ? new Date(log.timestamp * 1000).toLocaleString() : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -406,6 +486,7 @@ export default function App() {
     { id: "dashboard", label: "Live Monitor", icon: Activity },
     { id: "review", label: "Review Queue", icon: Clock },
     { id: "settings", label: "Thresholds", icon: Settings },
+    { id: "audit", label: "Audit Log", icon: ClipboardList },
   ];
 
   return (
@@ -454,6 +535,7 @@ export default function App() {
           {activeTab === "dashboard" && <LiveMonitorTab />}
           {activeTab === "review" && <ReviewQueueTab />}
           {activeTab === "settings" && <ThresholdsTab />}
+          {activeTab === "audit" && <AuditLogTab />}
         </div>
       </main>
     </div>
