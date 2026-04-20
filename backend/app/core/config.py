@@ -12,11 +12,15 @@ class Settings(BaseSettings):
 
     # Extension auth — set in .env before deploying
     API_KEY: str = "dev-key-change-in-production"
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "null",  # file:// pages (test-form opened directly in browser)
+    ]
 
     # Dashboard admin credentials — set in .env before deploying
     ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD_HASH: str = "$2b$12$KIXbMsVqBk3fjAjmE.5hOuCeGRkYfVyrkBHuqWBMD3FolMrLaKYsG"  # "admin123"
+    ADMIN_PASSWORD_HASH: str = "$2b$12$02wzWjcbSLjesWzheYTMY.6sGgzouMuugWkL/FQkbUirt.AJ2hDJy"  # "admin123"
 
     # JWT settings
     JWT_SECRET: str = "jwt-secret-change-in-production"

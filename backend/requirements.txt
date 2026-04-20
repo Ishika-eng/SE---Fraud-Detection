@@ -7,5 +7,5 @@ faiss-cpu
 python-dotenv
 slowapi
 python-jose[cryptography]
-passlib[bcrypt]
+bcrypt
 pydantic-settings

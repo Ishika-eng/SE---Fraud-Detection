@@ -116,10 +116,10 @@ class MLEngine:
 
         if name_sim > self.high_threshold and email_sim > self.high_threshold:
             risk_level = "HIGH"
-            explanation = f"REJECTED: Duplicate identity detected (Name {name_sim:.1f}%, Email {email_sim:.1f}%)."
+            explanation = f"FLAGGED: Duplicate identity detected (Name {name_sim:.1f}%, Email {email_sim:.1f}%). Pending officer review."
         elif email_sim > self.high_threshold:
             risk_level = "HIGH"
-            explanation = f"SUSPICIOUS: Email already registered ({email_sim:.1f}% match) to a different name."
+            explanation = f"SUSPICIOUS: Email already registered ({email_sim:.1f}% match) to a different name. Pending officer review."
         elif name_sim > self.high_threshold:
             risk_level = "MEDIUM"
             explanation = f"SHARED NAME: Name matches ({name_sim:.1f}%) but identifiers differ. Proceed with caution."
