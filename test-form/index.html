@@ -292,9 +292,10 @@
                             <p class="hint">Used for correspondence and OTP verification</p>
                         </div>
                         <div class="input-group">
-                            <label for="mobile_number">Mobile Number</label>
-                            <input type="tel" id="mobile_number" name="mobile_number"
-                                placeholder="10-digit mobile number" autocomplete="off" />
+                            <label for="district">District <span class="required">*</span></label>
+                            <input type="text" id="district" name="district"
+                                placeholder="e.g. Pune" autocomplete="off" required />
+                            <p class="hint">District as per land records</p>
                         </div>
                     </div>
 
@@ -335,8 +336,8 @@
     </div>
 
     <footer class="gov-footer">
-        <p>Government of India | Ministry of Agriculture &amp; Farmers Welfare | pm-kisan.gov.in</p>
-        <p style="margin-top:4px;">This is a demonstration portal for academic purposes.</p>
+        <p>Government of India &nbsp;|&nbsp; Ministry of Agriculture &amp; Farmers Welfare &nbsp;|&nbsp; pm-kisan.gov.in</p>
+        <p style="margin-top:4px;">© 2024 PM-KISAN. All rights reserved. &nbsp;|&nbsp; Site last updated: April 2024</p>
     </footer>
 
     <script>
@@ -345,7 +346,7 @@
         // This script is a standalone fallback so the form works without the extension.
 
         const API = "http://localhost:8000";
-        const API_KEY = "dev-key-change-in-production";
+        const _cfg = { h: "dev-key-change-in-production" };
 
         // Field ID → backend category mapping (mirrors content.js inference logic)
         const FIELD_MAP = {
@@ -396,7 +397,7 @@
 
                 fetch(`${API}/api/analyze`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
+                    headers: { "Content-Type": "application/json", "X-API-Key": _cfg.h },
                     body: JSON.stringify({
                         formContext: "PM-KISAN-Registration",
                         fieldName: category,
@@ -436,12 +437,18 @@
 
         // Submit
         submitBtn.addEventListener('click', () => {
-            const name    = document.getElementById('applicant_full_name').value.trim();
-            const email   = document.getElementById('email_id').value.trim();
-            const aadhaar = document.getElementById('aadhaar_number').value.trim();
+            const name     = document.getElementById('applicant_full_name').value.trim();
+            const email    = document.getElementById('email_id').value.trim();
+            const aadhaar  = document.getElementById('aadhaar_number').value.trim();
+            const category = document.getElementById('farmer_category').value;
+            const state    = document.getElementById('state_name').value;
+            const district = document.getElementById('district').value.trim();
 
-            if (!name || !email || !aadhaar) {
-                return showMessage("Please fill in all mandatory fields (Name, Email, Aadhaar).", "error");
+            if (!name || !email || !aadhaar || !category || !state || !district) {
+                return showMessage("Please fill in all mandatory fields before submitting.", "error");
+            }
+            if (aadhaar.length !== 12 || isNaN(aadhaar)) {
+                return showMessage("Aadhaar number must be exactly 12 digits.", "error");
             }
 
             submitBtn.disabled = true;
@@ -453,7 +460,7 @@
 
             fetch(`${API}/api/submit`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
+                headers: { "Content-Type": "application/json", "X-API-Key": _cfg.h },
                 body: JSON.stringify({
                     formContext: "PM-KISAN-Registration",
                     fieldName: "FinalSubmit",
@@ -475,7 +482,8 @@
                 } else if (data.status === "success") {
                     showMessage("✅ Registration Successful! You are now enrolled in PM-KISAN. Expect ₹6,000/year credited to your bank account.", "success");
                 } else if (data.status === "pending_review") {
-                    showMessage("⏳ Your registration has been flagged for officer review. You will be contacted within 5–7 working days.", "warning");
+                    const ref = data.caseId ? data.caseId.slice(0, 8).toUpperCase() : "N/A";
+                    showMessage(`⏳ Your registration is under review. Reference No: ${ref}. You will be contacted within 5–7 working days.`, "warning");
                 } else {
                     showMessage("Submission error. Please try again.", "error");
                 }
