@@ -149,10 +149,19 @@ Respond ONLY with valid JSON:
         }
     except Exception as e:
         logger.warning(f"LLM decision failed: {e}")
+        # Fallback: use similarity scores to make a best-effort decision
+        name_sim  = ml_result.get("name_sim",  0.0)
+        email_sim = ml_result.get("email_sim", 0.0)
+        if name_sim > 80 or email_sim > 70:
+            return {
+                "decision": "ESCALATE",
+                "reason":   f"Similarity signals are ambiguous (Name {name_sim:.1f}%, Email {email_sim:.1f}%). Escalated for officer review.",
+                "auto":     False,
+            }
         return {
-            "decision": "ESCALATE",
-            "reason":   "LLM could not reach a confident decision. Escalated for manual review.",
-            "auto":     False,
+            "decision": "APPROVE",
+            "reason":   f"Similarity below concern threshold (Name {name_sim:.1f}%, Email {email_sim:.1f}%). Approved.",
+            "auto":     True,
         }
 
 
