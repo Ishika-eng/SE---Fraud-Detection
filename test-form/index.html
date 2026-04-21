@@ -655,9 +655,11 @@
                     <div style="margin-bottom:6px">Reference No: <strong>${ref}</strong> — keep this for your records.</div>
                     <div>Track status: <a href="status.html?ref=${fullId}" target="_blank"
                         style="color:#1d4ed8;text-decoration:underline;font-weight:700;">Check Application Status →</a></div>`;
-                messageBanner.style.display       = 'block';
+                messageBanner.style.display         = 'block';
                 messageBanner.style.backgroundColor = '#fef9c3';
                 messageBanner.style.color           = '#92400e';
+            } else if (data.status === 'rejected') {
+                showMessage('❌ Registration blocked: ' + (data.message || 'A duplicate identity was detected. If you believe this is an error, contact support.'), 'error');
             } else {
                 showMessage('Submission error. Please try again.', 'error');
             }
