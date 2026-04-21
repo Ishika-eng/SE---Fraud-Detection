@@ -1,10 +1,26 @@
+"""
+Auto-decision engine — follows this exact decision table:
+
+┌──────────────────────────────┬─────────────────┬──────────────────────────────┐
+│ Situation                    │ Who decides     │ Action                       │
+├──────────────────────────────┼─────────────────┼──────────────────────────────┤
+│ CPS > 60                     │ Rules           │ Auto-reject                  │
+│ Both sims < 30%              │ Rules           │ Auto-approve                 │
+│ Both sims > 95%              │ Rules           │ Auto-reject                  │
+│ Similar name, different email│ Rules           │ Auto-approve                 │
+│ Everything else              │ LLM (Haiku)     │ APPROVE / REJECT / ESCALATE  │
+│ LLM says ESCALATE            │ Human officer   │ Dashboard (AI reason shown)  │
+└──────────────────────────────┴─────────────────┴──────────────────────────────┘
+
+Email similarity is computed on the local part only (domain ignored).
+"""
+
 import json
 import logging
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Lazy-init so missing API key doesn't crash startup
 _client = None
 
 def _get_client():
@@ -17,85 +33,75 @@ def _get_client():
 
 def apply_rules(ml_result: dict, behavior: dict) -> dict | None:
     """
-    Hard rules for obvious extremes. Returns a decision or None (→ send to LLM).
+    Hard rules for obvious cases. Returns a decision or None (→ send to LLM).
+    Exactly follows the decision table above.
     """
     name_sim  = ml_result.get("name_sim",  0.0)
     email_sim = ml_result.get("email_sim", 0.0)
     cps       = behavior.get("cps", 0)
     risk      = ml_result.get("riskLevel", "LOW")
 
-    # Physically impossible typing speed — definitive bot
+    # Row 1 — CPS > 60: physically impossible for a human → auto-reject
     if cps > 60:
         return {
             "decision": "REJECT",
-            "reason": f"Bot detected: {cps} CPS is physically impossible for a human (max ~15 CPS).",
-            "auto": True,
+            "reason":   f"Bot detected: {cps} CPS is physically impossible for a human.",
+            "auto":     True,
         }
 
-    # ML already cleared it as LOW — approve immediately
-    if risk == "LOW":
-        return {
-            "decision": "APPROVE",
-            "reason": "No similarity detected. Identity is unique.",
-            "auto": True,
-        }
-
-    # Both signals extremely high — definitive duplicate
-    if name_sim > 95 and email_sim > 90:
-        return {
-            "decision": "REJECT",
-            "reason": f"Definitive duplicate: name {name_sim:.1f}% + email {email_sim:.1f}% match.",
-            "auto": True,
-        }
-
-    # High email similarity alone — email is essentially unique, this is the same person
-    if email_sim > 92:
-        return {
-            "decision": "REJECT",
-            "reason": f"Email already registered ({email_sim:.1f}% match). Email addresses are unique identifiers — this is the same person.",
-            "auto": True,
-        }
-
-    # Very low similarity on both — safe despite being flagged (edge threshold case)
+    # Row 2 — Both sims < 30%: clearly different identity → auto-approve
     if name_sim < 30 and email_sim < 30:
         return {
             "decision": "APPROVE",
-            "reason": "Similarity below meaningful threshold. Different identity confirmed.",
-            "auto": True,
+            "reason":   "Both name and email similarity below 30%. Clearly a new identity.",
+            "auto":     True,
         }
 
-    # Similar name but different email — only auto-approve if name similarity is moderate
-    # (genuinely common names like "John Smith"). High name similarity (≥88%) means
-    # it is very likely the same person using a different email — escalate to human.
-    if name_sim > 80 and name_sim < 88 and email_sim < 25:
+    # ML already determined LOW risk (both sims below medium threshold) → approve
+    if risk == "LOW":
         return {
             "decision": "APPROVE",
-            "reason": f"Moderately common name ({name_sim:.1f}% match) but email is clearly different. Treated as different person.",
-            "auto": True,
+            "reason":   "Identity is unique. No significant similarity detected.",
+            "auto":     True,
         }
 
-    if name_sim >= 88 and email_sim < 25:
+    # Row 3 — Both sims > 95%: definitive duplicate → auto-reject
+    if name_sim > 95 and email_sim > 95:
         return {
-            "decision": "ESCALATE",
-            "reason": f"Very similar name ({name_sim:.1f}% match) with a different email. Could be the same person using a new email address. Human review required.",
-            "auto": False,
+            "decision": "REJECT",
+            "reason":   f"Definitive duplicate: name {name_sim:.1f}% + email {email_sim:.1f}% match.",
+            "auto":     True,
         }
 
-    # Middle ground — LLM needed
+    # Email local-part very high alone → same person, different name → auto-reject
+    if email_sim > 92:
+        return {
+            "decision": "REJECT",
+            "reason":   f"Email local part already registered ({email_sim:.1f}% match). Same person, different name.",
+            "auto":     True,
+        }
+
+    # Row 4 — Similar name, different email → auto-approve
+    # (name is similar but email local part is clearly different — could be same common name)
+    if name_sim > 60 and email_sim < 30:
+        return {
+            "decision": "APPROVE",
+            "reason":   f"Similar name ({name_sim:.1f}%) but email is clearly different. Treated as a different person.",
+            "auto":     True,
+        }
+
+    # Everything else → LLM (Row 5)
     return None
 
 
 async def ask_llm(ml_result: dict, behavior: dict, platform: str) -> dict:
-    """
-    LLM decision for middle-ground cases.
-    Falls back to ESCALATE if API is unavailable or call fails.
-    """
+    """LLM decision for middle-ground cases. Falls back to ESCALATE if unavailable."""
     client = _get_client()
     if not client:
         return {
             "decision": "ESCALATE",
-            "reason": "LLM unavailable (no API key). Escalated for manual review.",
-            "auto": False,
+            "reason":   "LLM unavailable (no API key configured). Escalated for manual review.",
+            "auto":     False,
         }
 
     name_sim  = ml_result.get("name_sim",  0.0)
@@ -104,29 +110,26 @@ async def ask_llm(ml_result: dict, behavior: dict, platform: str) -> dict:
     pastes    = behavior.get("pastesCount", 0)
     risk      = ml_result.get("riskLevel", "MEDIUM")
 
-    prompt = f"""You are a fraud detection AI for a {platform} platform. Decide if this registration is fraudulent.
+    prompt = f"""You are a fraud detection AI for a {platform} platform.
 
-Signals detected:
-- Name similarity to an existing account: {name_sim:.1f}%
-- Email similarity to an existing account: {email_sim:.1f}%
-- Typing speed: {cps} CPS  (normal human range: 3–15 CPS)
+Signals:
+- Name similarity to existing account: {name_sim:.1f}%
+- Email local-part similarity (domain ignored): {email_sim:.1f}%
+- Typing speed: {cps} CPS (normal human: 3–15 CPS)
 - Paste events: {pastes}
 - ML risk level: {risk}
 
-Platform context:
-- Edtech/Job Portal: people share common names — email similarity is the stronger fraud signal.
-- E-Commerce/Insurance: duplicate email is almost always fraud.
+Decide if this registration is fraudulent.
 
-Decision guide:
-- APPROVE: signals are ambiguous or explainable by coincidence (e.g. common name, different email).
-- REJECT: strong evidence of same person — high email match, paste + high similarity, etc.
-- ESCALATE: genuinely uncertain — officer should decide.
+APPROVE  = safe, let through
+REJECT   = block automatically
+ESCALATE = genuinely ambiguous, human officer must decide
 
-Respond ONLY with valid JSON in this exact format:
+Respond ONLY with valid JSON:
 {{"decision": "APPROVE", "reason": "one sentence"}}"""
 
     try:
-        message = client.messages.create(
+        message = _client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=120,
             messages=[{"role": "user", "content": prompt}],
@@ -137,7 +140,7 @@ Respond ONLY with valid JSON in this exact format:
         data  = json.loads(text[start:end])
 
         if data.get("decision") not in ("APPROVE", "REJECT", "ESCALATE"):
-            raise ValueError("Unexpected decision value")
+            raise ValueError("Unexpected decision")
 
         return {
             "decision": data["decision"],
@@ -145,7 +148,7 @@ Respond ONLY with valid JSON in this exact format:
             "auto":     data["decision"] != "ESCALATE",
         }
     except Exception as e:
-        logger.warning(f"LLM auto-decision failed: {e}")
+        logger.warning(f"LLM decision failed: {e}")
         return {
             "decision": "ESCALATE",
             "reason":   "LLM could not reach a confident decision. Escalated for manual review.",
@@ -155,16 +158,13 @@ Respond ONLY with valid JSON in this exact format:
 
 async def auto_decide(ml_result: dict, behavior: dict, platform: str) -> dict:
     """
-    Combined engine:
-      1. Rules handle obvious extremes instantly.
-      2. LLM handles the middle ground.
-      3. Human officer only sees ESCALATE cases.
+    Entry point. Rules first → LLM for middle ground → human for ESCALATE only.
     """
     rule = apply_rules(ml_result, behavior)
     if rule:
-        logger.info(f"Auto-decision by rules: {rule['decision']} — {rule['reason']}")
+        logger.info(f"Rule decision: {rule['decision']} — {rule['reason']}")
         return rule
 
     llm = await ask_llm(ml_result, behavior, platform)
-    logger.info(f"Auto-decision by LLM: {llm['decision']} — {llm['reason']}")
+    logger.info(f"LLM decision: {llm['decision']} — {llm['reason']}")
     return llm
