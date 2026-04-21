@@ -336,7 +336,7 @@ function ReviewQueueTab() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Officer Review Queue</h1>
-          <p className="text-gray-500 text-sm">HIGH risk submissions awaiting human decision (SR-1, BR-4)</p>
+          <p className="text-gray-500 text-sm">Cases the AI could not decide with confidence — human judgement required</p>
         </div>
         <div className="flex items-center gap-3">
           <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setNotification(null); }}
@@ -384,16 +384,22 @@ function ReviewQueueTab() {
                   <RiskBadge level={c.riskLevel} />
                   <span className="text-xs text-gray-600 font-mono">REF: {c.id?.slice(0, 8).toUpperCase()}</span>
                   <span className="text-xs text-gray-500">{c.timestamp ? new Date(c.timestamp * 1000).toLocaleString() : ""}</span>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">🤖 AI Escalated</span>
                 </div>
                 <p className="text-white font-bold mb-1">
                   {c.value || "—"} <span className="text-gray-500 font-normal text-sm">({c.fieldName})</span>
                 </p>
                 <p className="text-yellow-400 text-sm mb-2">{c.explanation}</p>
+                {c.aiReason && (
+                  <div className="flex items-start gap-2 bg-violet-500/5 border border-violet-500/20 rounded-lg px-3 py-2 mb-2">
+                    <span className="text-violet-400 text-xs font-bold shrink-0 mt-0.5">AI:</span>
+                    <p className="text-violet-300 text-xs">{c.aiReason}</p>
+                  </div>
+                )}
                 {c.identityDetails && (
                   <div className="flex gap-4 text-xs text-gray-500 mb-2">
-                    {c.identityDetails.FullName && <span>Name: <span className="text-gray-300">{c.identityDetails.FullName}</span></span>}
+                    {c.identityDetails.FullName     && <span>Name: <span className="text-gray-300">{c.identityDetails.FullName}</span></span>}
                     {c.identityDetails.EmailAddress && <span>Email: <span className="text-gray-300">{c.identityDetails.EmailAddress}</span></span>}
-                    {c.identityDetails.GovID && <span>ID: <span className="text-gray-300">{'*'.repeat(Math.max(0, c.identityDetails.GovID.length - 4)) + c.identityDetails.GovID.slice(-4)}</span></span>}
                   </div>
                 )}
                 {c.officerNote && <p className="text-gray-400 text-xs italic">Officer note: {c.officerNote}</p>}

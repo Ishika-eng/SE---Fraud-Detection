@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # Bot detection threshold — CPS above this is flagged as robotic
     BOT_CPS_THRESHOLD: float = 35.0
 
+    # Anthropic API key — for LLM-based auto-decision on middle-ground cases
+    ANTHROPIC_API_KEY: str = ""
+
     class Config:
         case_sensitive = True
         env_file = ".env"

@@ -110,43 +110,48 @@ class MLEngine:
                 return {
                     "riskLevel": "HIGH",
                     "similarityScore": 100.0,
+                    "name_sim": 100.0,
+                    "email_sim": 100.0,
                     "message": "CRITICAL: Government ID is already registered. Submission flagged for officer review.",
                     "matchedValue": None
                 }
-            # Different Aadhaar = definitively different person — name similarity is irrelevant
             return {
                 "riskLevel": "LOW",
                 "similarityScore": 0.0,
+                "name_sim": 0.0,
+                "email_sim": 0.0,
                 "message": "Identity is unique. Aadhaar verified as new.",
                 "matchedValue": None
             }
 
-        # GovID not provided — use name + email similarity as fallback signal
+        # No GovID — use name + email similarity
         async with self._lock:
-            name_result = self.compute_similarity(details.get("FullName", ""), category="FullName")
-            email_result = self.compute_similarity(details.get("EmailAddress", ""), category="EmailAddress")
+            name_result  = self.compute_similarity(details.get("FullName", ""),      category="FullName")
+            email_result = self.compute_similarity(details.get("EmailAddress", ""),  category="EmailAddress")
 
-        name_sim = name_result.get("similarityScore", 0.0)
+        name_sim  = name_result.get("similarityScore", 0.0)
         email_sim = email_result.get("similarityScore", 0.0)
 
-        risk_level = "LOW"
+        risk_level  = "LOW"
         explanation = "Identity is unique."
 
         if name_sim > self.high_threshold and email_sim > self.high_threshold:
-            risk_level = "HIGH"
-            explanation = f"FLAGGED: Duplicate identity detected (Name {name_sim:.1f}%, Email {email_sim:.1f}%). Pending officer review."
+            risk_level  = "HIGH"
+            explanation = f"FLAGGED: Duplicate identity detected (Name {name_sim:.1f}%, Email {email_sim:.1f}%)."
         elif email_sim > self.high_threshold:
-            risk_level = "HIGH"
-            explanation = f"SUSPICIOUS: Email already registered ({email_sim:.1f}% match). Pending officer review."
+            risk_level  = "HIGH"
+            explanation = f"SUSPICIOUS: Email already registered ({email_sim:.1f}% match)."
         elif name_sim > self.high_threshold and email_sim > self.medium_threshold:
-            risk_level = "MEDIUM"
-            explanation = f"POSSIBLE DUPLICATE: Similar name ({name_sim:.1f}%) and email ({email_sim:.1f}%) without Aadhaar to resolve. Pending review."
+            risk_level  = "MEDIUM"
+            explanation = f"POSSIBLE DUPLICATE: Similar name ({name_sim:.1f}%) and email ({email_sim:.1f}%)."
 
         return {
-            "riskLevel": risk_level,
+            "riskLevel":       risk_level,
             "similarityScore": max(name_sim, email_sim),
-            "message": explanation,
-            "matchedValue": None  # Never expose registry values in API response
+            "name_sim":        name_sim,
+            "email_sim":       email_sim,
+            "message":         explanation,
+            "matchedValue":    None
         }
 
     async def evaluate_risk(self, input_text: str, behavior: dict, category: str = "FullName") -> dict:
