@@ -3,134 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PM-KISAN Samman Nidhi — Farmer Registration Portal</title>
+    <title>FraudGuard AI — Live Demo</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f1f5f9; min-height: 100vh; }
 
-        body {
-            font-family: -apple-system, 'Segoe UI', sans-serif;
-            background: #f0f2f5;
-            min-height: 100vh;
-        }
-
-        /* Government header */
-        .gov-header {
-            background: #003087;
+        .app-header {
+            background: #0f172a;
             color: white;
-            padding: 0;
-        }
-        .gov-header-top {
-            background: #00205b;
-            padding: 8px 40px;
+            padding: 16px 40px;
             display: flex;
             align-items: center;
-            gap: 16px;
-            font-size: 11px;
-            color: #a0b4d6;
+            justify-content: space-between;
         }
-        .emblem {
-            width: 52px; height: 52px;
-            background: white;
-            border-radius: 50%;
+        .app-logo { display: flex; align-items: center; gap: 12px; }
+        .app-logo-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 10px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 22px;
+            font-size: 20px;
         }
-        .gov-header-main {
-            padding: 14px 40px;
-            display: flex;
-            align-items: center;
-            gap: 20px;
+        .app-logo-text h1 { font-size: 18px; font-weight: 700; }
+        .app-logo-text p  { font-size: 12px; color: #64748b; margin-top: 1px; }
+        .demo-badge {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            font-size: 11px;
+            padding: 4px 12px;
+            border-radius: 20px;
         }
-        .gov-title h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; }
-        .gov-title p  { font-size: 12px; color: #a0b4d6; margin-top: 2px; }
 
-        /* Scheme banner */
-        .scheme-banner {
-            background: linear-gradient(135deg, #f97316, #ea580c);
-            color: white;
-            text-align: center;
-            padding: 10px;
+        .platform-bar {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 40px;
+            display: flex;
+        }
+        .platform-tab {
+            padding: 14px 22px;
             font-size: 13px;
             font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-
-        /* Nav */
-        .gov-nav {
-            background: #004aad;
-            display: flex;
-            gap: 0;
-            padding: 0 40px;
-        }
-        .gov-nav a {
-            color: #cdd9ee;
-            text-decoration: none;
-            font-size: 13px;
-            padding: 10px 16px;
-            display: block;
-            transition: background 0.2s;
-        }
-        .gov-nav a:hover, .gov-nav a.active { background: rgba(255,255,255,0.12); color: white; }
-
-        /* Main layout */
-        .container {
-            max-width: 820px;
-            margin: 32px auto;
-            padding: 0 20px 60px;
-        }
-
-        .breadcrumb {
-            font-size: 12px;
             color: #64748b;
-            margin-bottom: 20px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: color 0.2s;
+            user-select: none;
         }
-        .breadcrumb a { color: #003087; text-decoration: none; }
-        .breadcrumb a:hover { text-decoration: underline; }
+        .platform-tab:hover { color: #0f172a; }
+        .platform-tab.active { color: var(--accent, #6366f1); border-bottom-color: var(--accent, #6366f1); }
+
+        .container { max-width: 780px; margin: 32px auto; padding: 0 20px 60px; }
+
+        .context-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 16px;
+        }
+        .context-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent, #6366f1); animation: pulse 2s infinite; }
 
         .form-card {
             background: white;
-            border-radius: 4px;
-            border: 1px solid #d1d9e0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
             overflow: hidden;
         }
-
         .form-card-header {
-            background: #003087;
-            color: white;
-            padding: 18px 28px;
+            padding: 20px 28px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
+            background: var(--accent, #6366f1);
+            color: white;
+            transition: background 0.3s;
         }
-        .form-card-header h2 { font-size: 16px; font-weight: 600; }
-        .form-card-header p  { font-size: 12px; color: #a0b4d6; margin-top: 2px; }
+        .form-card-header-icon { font-size: 32px; }
+        .form-card-header h2  { font-size: 17px; font-weight: 700; }
+        .form-card-header p   { font-size: 12px; opacity: 0.8; margin-top: 2px; }
 
         .form-body { padding: 28px; }
 
         .form-note {
-            background: #eff6ff;
-            border-left: 4px solid #003087;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid var(--accent, #6366f1);
             padding: 12px 16px;
             font-size: 12px;
-            color: #1e40af;
+            color: #475569;
             margin-bottom: 24px;
-            border-radius: 0 4px 4px 0;
+            border-radius: 0 6px 6px 0;
+            line-height: 1.5;
         }
 
         .form-section-title {
-            font-size: 13px;
+            font-size: 11px;
             font-weight: 700;
-            color: #003087;
+            color: #94a3b8;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #e2e8f0;
-            margin-bottom: 20px;
+            letter-spacing: 0.8px;
+            margin-bottom: 16px;
         }
 
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-        .form-row.single { grid-template-columns: 1fr; }
 
         .input-group { position: relative; }
         .input-group label {
@@ -139,15 +126,13 @@
             font-weight: 600;
             color: #374151;
             margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
         }
-        .input-group label .required { color: #dc2626; margin-left: 2px; }
+        .input-group label .req { color: #ef4444; margin-left: 2px; }
         .input-group input, .input-group select {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #d1d5db;
-            border-radius: 4px;
+            border-radius: 6px;
             font-size: 14px;
             color: #111827;
             background: white;
@@ -155,18 +140,43 @@
         }
         .input-group input:focus, .input-group select:focus {
             outline: none;
-            border-color: #003087;
-            box-shadow: 0 0 0 3px rgba(0,48,135,0.1);
+            border-color: var(--accent, #6366f1);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
         }
-        .input-group .hint {
-            font-size: 11px;
-            color: #6b7280;
-            margin-top: 4px;
+        .input-group .hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+        #message-banner {
+            padding: 14px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: none;
+            line-height: 1.7;
         }
 
-        /* The exact classes injected by FraudGuard Extension */
-        .fg-input-high  { border: 2px solid #ef4444 !important; box-shadow: 0 0 8px rgba(239,68,68,0.3) !important; }
-        .fg-input-medium { border: 2px solid #f97316 !important; box-shadow: 0 0 8px rgba(249,115,22,0.3) !important; }
+        .form-footer {
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            padding: 16px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .form-footer p { font-size: 11px; color: #94a3b8; }
+        .submit-btn {
+            background: var(--accent, #6366f1);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 11px 28px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .submit-btn:hover:not(:disabled) { opacity: 0.88; }
+        .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Behavioral telemetry panel */
         #behavior-panel {
@@ -182,524 +192,524 @@
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
         #behavior-panel .panel-title {
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 1.5px;
-            color: #4b5563;
-            text-transform: uppercase;
+            font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+            color: #4b5563; text-transform: uppercase;
             margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            display: flex; align-items: center; gap: 6px;
         }
         #behavior-panel .panel-title::before {
-            content: '';
-            width: 6px; height: 6px;
-            background: #ef4444;
-            border-radius: 50%;
+            content: ''; width: 6px; height: 6px;
+            background: #ef4444; border-radius: 50%;
             animation: pulse 1.5s infinite;
         }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-        .brow {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
+        .brow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .brow-label { font-size: 10px; color: #6b7280; }
         .brow-value { font-size: 12px; font-weight: 700; color: #e5e7eb; }
         .brow-value.green  { color: #34d399; }
         .brow-value.yellow { color: #fbbf24; }
         .brow-value.red    { color: #f87171; }
-
-        .brow-bar {
-            height: 3px;
-            background: #1f2937;
-            border-radius: 2px;
-            margin-bottom: 10px;
-            overflow: hidden;
-        }
+        .brow-bar { height: 3px; background: #1f2937; border-radius: 2px; margin-bottom: 10px; overflow: hidden; }
         .brow-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; }
-
         .pattern-badge {
-            margin-top: 10px;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            text-align: center;
+            margin-top: 10px; padding: 6px 10px; border-radius: 6px;
+            font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-align: center;
         }
-        .pattern-badge.human   { background: #064e3b; color: #34d399; border: 1px solid #065f46; }
-        .pattern-badge.sus     { background: #451a03; color: #fbbf24; border: 1px solid #78350f; }
-        .pattern-badge.bot     { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; animation: pulse 0.8s infinite; }
-        .pattern-badge.idle    { background: #1f2937; color: #4b5563; border: 1px solid #374151; }
-
-        .panel-field {
-            font-size: 9px;
-            color: #374151;
-            margin-top: 10px;
-            padding-top: 8px;
-            border-top: 1px solid #1f2937;
-        }
+        .pattern-badge.human { background: #064e3b; color: #34d399; border: 1px solid #065f46; }
+        .pattern-badge.sus   { background: #451a03; color: #fbbf24; border: 1px solid #78350f; }
+        .pattern-badge.bot   { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; animation: pulse 0.8s infinite; }
+        .pattern-badge.idle  { background: #1f2937; color: #4b5563; border: 1px solid #374151; }
+        .panel-field { font-size: 9px; color: #374151; margin-top: 10px; padding-top: 8px; border-top: 1px solid #1f2937; }
         .panel-field span { color: #6b7280; }
 
-        .divider { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
-
-        #message-banner {
-            padding: 12px 16px;
-            border-radius: 4px;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .submit-btn {
-            background: #003087;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 12px 32px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            letter-spacing: 0.3px;
-            transition: background 0.2s;
-        }
-        .submit-btn:hover:not(:disabled) { background: #004aad; }
-        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-        .form-footer {
-            background: #f8fafc;
-            border-top: 1px solid #e2e8f0;
-            padding: 16px 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .form-footer p { font-size: 11px; color: #94a3b8; }
-
-        /* Bottom gov footer */
-        .gov-footer {
-            background: #00205b;
-            color: #7a93b8;
+        .app-footer {
+            background: #0f172a;
+            color: #475569;
             text-align: center;
             padding: 20px;
             font-size: 11px;
             margin-top: 60px;
         }
+        .app-footer strong { color: #64748b; }
     </style>
 </head>
 <body>
 
-    <!-- Behavioral Telemetry Panel (FraudGuard live signal monitor) -->
-    <div id="behavior-panel">
-        <div class="panel-title">FraudGuard Live Signals</div>
-
-        <div class="brow">
-            <span class="brow-label">Typing Speed</span>
-            <span class="brow-value" id="bp-cps">— CPS</span>
-        </div>
-        <div class="brow-bar"><div class="brow-bar-fill" id="bp-cps-bar" style="width:0%;background:#34d399"></div></div>
-
-        <div class="brow">
-            <span class="brow-label">Keystrokes</span>
-            <span class="brow-value" id="bp-ks">0</span>
-        </div>
-
-        <div class="brow">
-            <span class="brow-label">Deletions</span>
-            <span class="brow-value" id="bp-del">0</span>
-        </div>
-
-        <div class="brow">
-            <span class="brow-label">Paste Events</span>
-            <span class="brow-value" id="bp-paste">0</span>
-        </div>
-
-        <div class="brow">
-            <span class="brow-label">Time on Field</span>
-            <span class="brow-value" id="bp-time">—</span>
-        </div>
-
-        <div class="pattern-badge idle" id="bp-pattern">IDLE</div>
-
-        <div class="panel-field">Active field: <span id="bp-field">—</span></div>
+<!-- Behavioral Telemetry Panel -->
+<div id="behavior-panel">
+    <div class="panel-title">FraudGuard Live Signals</div>
+    <div class="brow">
+        <span class="brow-label">Typing Speed</span>
+        <span class="brow-value" id="bp-cps">— CPS</span>
     </div>
-
-    <!-- Government Header -->
-    <header class="gov-header">
-        <div class="gov-header-top">
-            <span>Government of India — Ministry of Agriculture &amp; Farmers Welfare</span>
-        </div>
-        <div class="gov-header-main">
-            <div class="emblem">🇮🇳</div>
-            <div class="gov-title">
-                <h1>PM Kisan Samman Nidhi (PM-KISAN)</h1>
-                <p>Direct income support of ₹6,000/year to farmer families across India</p>
-            </div>
-        </div>
-        <nav class="gov-nav">
-            <a href="#" class="active">Registration</a>
-            <a href="#">Beneficiary Status</a>
-            <a href="#">Helpdesk</a>
-            <a href="#">About Scheme</a>
-        </nav>
-    </header>
-
-    <div class="scheme-banner">
-        ★ New Farmer Registration Portal — Submit your details to avail ₹6,000/year under PM-KISAN ★
+    <div class="brow-bar"><div class="brow-bar-fill" id="bp-cps-bar" style="width:0%;background:#34d399"></div></div>
+    <div class="brow">
+        <span class="brow-label">Keystrokes</span>
+        <span class="brow-value" id="bp-ks">0</span>
     </div>
+    <div class="brow">
+        <span class="brow-label">Deletions</span>
+        <span class="brow-value" id="bp-del">0</span>
+    </div>
+    <div class="brow">
+        <span class="brow-label">Paste Events</span>
+        <span class="brow-value" id="bp-paste">0</span>
+    </div>
+    <div class="brow">
+        <span class="brow-label">Time on Field</span>
+        <span class="brow-value" id="bp-time">—</span>
+    </div>
+    <div class="pattern-badge idle" id="bp-pattern">IDLE</div>
+    <div class="panel-field">Active field: <span id="bp-field">—</span></div>
+</div>
 
-    <div class="container">
-        <div class="breadcrumb">
-            <a href="#">Home</a> &rsaquo; <a href="#">PM-KISAN</a> &rsaquo; New Farmer Registration
-        </div>
-
-        <div class="form-card">
-            <div class="form-card-header">
-                <div style="font-size:28px">🌾</div>
-                <div>
-                    <h2>New Farmer Registration Form</h2>
-                    <p>Fields marked with * are mandatory. All data is verified against national registries.</p>
-                </div>
-            </div>
-
-            <div class="form-body">
-                <div class="form-note">
-                    ℹ️ This portal is protected by <strong>FraudGuard AI</strong> — real-time duplicate identity detection is active.
-                    Any attempt to register a previously enrolled identity will be flagged automatically.
-                </div>
-
-                <div class="form-section-title">Personal Information</div>
-
-                <div id="message-banner"></div>
-
-                <form id="registration-form" novalidate>
-                    <div class="form-row">
-                        <div class="input-group">
-                            <label for="applicant_full_name">Full Name (As per Aadhaar) <span class="required">*</span></label>
-                            <input type="text" id="applicant_full_name" name="applicant_full_name"
-                                placeholder="e.g. Ramesh Kumar" autocomplete="off" required />
-                            <p class="hint">Enter name exactly as on Aadhaar card</p>
-                        </div>
-                        <div class="input-group">
-                            <label for="farmer_category">Farmer Category <span class="required">*</span></label>
-                            <select id="farmer_category" name="farmer_category">
-                                <option value="">— Select —</option>
-                                <option>Small & Marginal Farmer</option>
-                                <option>Medium Farmer</option>
-                                <option>Large Farmer</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="input-group">
-                            <label for="email_id">Email Address <span class="required">*</span></label>
-                            <input type="email" id="email_id" name="email_id"
-                                placeholder="you@example.com" autocomplete="off" required />
-                            <p class="hint">Used for correspondence and OTP verification</p>
-                        </div>
-                        <div class="input-group">
-                            <label for="district">District <span class="required">*</span></label>
-                            <input type="text" id="district" name="district"
-                                placeholder="e.g. Pune" autocomplete="off" required />
-                            <p class="hint">District as per land records</p>
-                        </div>
-                    </div>
-
-                    <hr class="divider" />
-                    <div class="form-section-title">Identity Verification</div>
-
-                    <div class="form-row">
-                        <div class="input-group">
-                            <label for="aadhaar_number">Aadhaar Number <span class="required">*</span></label>
-                            <input type="text" id="aadhaar_number" name="aadhaar_number"
-                                placeholder="12-digit Aadhaar" autocomplete="off"
-                                maxlength="12" required />
-                            <p class="hint">Verified via exact SHA-256 match — not stored in plaintext</p>
-                        </div>
-                        <div class="input-group">
-                            <label for="state_name">State <span class="required">*</span></label>
-                            <select id="state_name" name="state_name">
-                                <option value="">— Select State —</option>
-                                <option>Maharashtra</option>
-                                <option>Uttar Pradesh</option>
-                                <option>Madhya Pradesh</option>
-                                <option>Rajasthan</option>
-                                <option>Punjab</option>
-                                <option>Gujarat</option>
-                                <option>Karnataka</option>
-                                <option>Other</option>
-                            </select>
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <div class="form-footer">
-                <p>🔒 Secured by FraudGuard AI — Real-time identity fraud monitoring active</p>
-                <button type="button" class="submit-btn" id="submit-btn">Submit Registration</button>
-            </div>
+<!-- Header -->
+<header class="app-header">
+    <div class="app-logo">
+        <div class="app-logo-icon">🛡️</div>
+        <div class="app-logo-text">
+            <h1>FraudGuard AI</h1>
+            <p>Real-time duplicate identity detection SDK</p>
         </div>
     </div>
+    <span class="demo-badge">⚡ Live Demo — SDK Integration</span>
+</header>
 
-    <footer class="gov-footer">
-        <p>Government of India &nbsp;|&nbsp; Ministry of Agriculture &amp; Farmers Welfare &nbsp;|&nbsp; pm-kisan.gov.in</p>
-        <p style="margin-top:4px;">© 2024 PM-KISAN. All rights reserved. &nbsp;|&nbsp; Site last updated: April 2024</p>
-    </footer>
+<!-- Platform Selector -->
+<div class="platform-bar" id="platform-bar">
+    <div class="platform-tab active" data-platform="edtech">🎓 Edtech Platform</div>
+    <div class="platform-tab" data-platform="jobportal">💼 Job Portal</div>
+    <div class="platform-tab" data-platform="ecommerce">🛒 E-Commerce</div>
+    <div class="platform-tab" data-platform="insurance">🛡️ Insurance Claims</div>
+</div>
 
-    <script>
-        // ── Fallback script — mirrors what the Chrome Extension does ──────────────
-        // The FraudGuard Chrome Extension handles this automatically when installed.
-        // This script is a standalone fallback so the form works without the extension.
+<div class="container">
+    <div class="context-pill">
+        <div class="context-dot"></div>
+        <span id="context-label">FraudGuard SDK — EduVerify context active</span>
+    </div>
 
-        const API = "http://localhost:8000";
-        const _cfg = { h: "dev-key-change-in-production" };
+    <div class="form-card">
+        <div class="form-card-header" id="form-header">
+            <div class="form-card-header-icon" id="header-icon">🎓</div>
+            <div>
+                <h2 id="header-title">EduVerify — Exam Registration</h2>
+                <p id="header-subtitle">Fields marked * are required. Duplicate account detection is active.</p>
+            </div>
+        </div>
 
-        // Field ID → backend category mapping (mirrors content.js inference logic)
-        const FIELD_MAP = {
-            "applicant_full_name": "FullName",
-            "email_id": "EmailAddress",
-            "aadhaar_number": "GovID"
-        };
+        <div class="form-body">
+            <div class="form-note">
+                ℹ️ This platform is protected by <strong>FraudGuard AI</strong> — real-time duplicate identity detection is active.
+                Creating multiple accounts is a violation of our terms of service and will be flagged automatically.
+            </div>
 
-        let inputState = {};
-        const submitBtn = document.getElementById('submit-btn');
-        const messageBanner = document.getElementById('message-banner');
+            <div id="message-banner"></div>
 
-        // ── Behavioral telemetry panel ────────────────────────────────────────
-        const bp = {
-            cps:     document.getElementById('bp-cps'),
-            cpsBar:  document.getElementById('bp-cps-bar'),
-            ks:      document.getElementById('bp-ks'),
-            del:     document.getElementById('bp-del'),
-            paste:   document.getElementById('bp-paste'),
-            time:    document.getElementById('bp-time'),
-            pattern: document.getElementById('bp-pattern'),
-            field:   document.getElementById('bp-field'),
-        };
+            <div class="form-section-title" id="section-title">Candidate Information</div>
 
-        function updatePanel(fieldId, state) {
-            const ks = state.keystrokes || [];
-            const timeMs = ks.length > 1 ? ks[ks.length - 1] - ks[0] : 0;
-            const cpsVal = timeMs > 0 ? parseFloat((ks.length / (timeMs / 1000)).toFixed(1)) : 0;
+            <form id="registration-form" novalidate>
+                <div id="form-fields"></div>
+            </form>
+        </div>
 
-            // CPS bar — cap visual at 50 CPS
-            const barPct = Math.min((cpsVal / 50) * 100, 100);
-            const barColor = cpsVal > 35 ? '#f87171' : cpsVal > 15 ? '#fbbf24' : '#34d399';
-            bp.cpsBar.style.width   = barPct + '%';
-            bp.cpsBar.style.background = barColor;
+        <div class="form-footer">
+            <p>🔒 Secured by FraudGuard AI — Real-time fraud monitoring active</p>
+            <button type="button" class="submit-btn" id="submit-btn">Register for Exam</button>
+        </div>
+    </div>
+</div>
 
-            const cpsClass = cpsVal > 35 ? 'red' : cpsVal > 15 ? 'yellow' : 'green';
-            bp.cps.textContent  = cpsVal > 0 ? cpsVal + ' CPS' : '— CPS';
-            bp.cps.className    = 'brow-value ' + cpsClass;
+<footer class="app-footer">
+    <p><strong>FraudGuard AI</strong> — Multi-domain fraud detection SDK &nbsp;|&nbsp; Edtech · Job Portals · E-Commerce · Insurance</p>
+    <p style="margin-top:4px;">© 2025 FraudGuard AI. For demo purposes only.</p>
+</footer>
 
-            // Counts
-            bp.ks.textContent    = ks.length;
-            bp.del.textContent   = state.deletions || 0;
-            bp.paste.textContent = state.pastes || 0;
+<script>
+    const API = "http://localhost:8000";
+    const _cfg = { h: "dev-key-change-in-production" };
 
-            // Time on field
-            bp.time.textContent = timeMs > 0 ? (timeMs / 1000).toFixed(1) + 's' : '—';
+    // ── Platform configurations ──────────────────────────────────────────────
+    const PLATFORMS = {
+        edtech: {
+            name: "EduVerify",
+            icon: "🎓",
+            accent: "#6366f1",
+            title: "EduVerify — Exam Registration",
+            subtitle: "Register for your exam or certification. Duplicate accounts are automatically detected.",
+            context: "EduVerify-Exam-Registration",
+            sectionTitle: "Candidate Information",
+            submitLabel: "Register for Exam",
+            fields: [
+                { id: "full_name",   label: "Full Name",      type: "text",   placeholder: "e.g. Priya Sharma",     category: "FullName",     hint: "As per your institution records",         required: true  },
+                { id: "email",       label: "Email Address",  type: "email",  placeholder: "you@example.com",        category: "EmailAddress", hint: "Exam hall ticket will be sent here",      required: true  },
+                { id: "exam_type",   label: "Exam / Course",  type: "select", options: ["— Select —", "NEET 2025", "JEE Main", "CAT", "UPSC Prelims", "AWS Certification", "Google Cloud Associate", "Other"], category: null, required: true  },
+                { id: "institution", label: "Institution",    type: "text",   placeholder: "e.g. Delhi University", category: null,           hint: "Current college or school",               required: false },
+            ],
+            successMsg: "✅ Registration successful! Your exam hall ticket will be sent to your email within 24 hours.",
+        },
+        jobportal: {
+            name: "TalentBridge",
+            icon: "💼",
+            accent: "#0ea5e9",
+            title: "TalentBridge — Candidate Registration",
+            subtitle: "Create your professional profile. Duplicate profiles are flagged to maintain recruiter trust.",
+            context: "TalentBridge-Profile-Registration",
+            sectionTitle: "Professional Information",
+            submitLabel: "Create Profile",
+            fields: [
+                { id: "full_name",  label: "Full Name",           type: "text",   placeholder: "e.g. Rahul Mehta",   category: "FullName",     hint: "As it appears on your resume",           required: true },
+                { id: "email",      label: "Email Address",       type: "email",  placeholder: "you@example.com",     category: "EmailAddress", hint: "Primary contact for recruiters",          required: true },
+                { id: "job_role",   label: "Job Role",            type: "select", options: ["— Select —", "Software Engineer", "Data Analyst", "Product Manager", "Marketing Manager", "Finance Analyst", "HR Manager", "Other"], category: null, required: true },
+                { id: "experience", label: "Years of Experience", type: "select", options: ["— Select —", "0–1 years (Fresher)", "1–3 years", "3–5 years", "5–10 years", "10+ years"], category: null, required: true },
+            ],
+            successMsg: "✅ Profile created! Recruiters can now discover you. Check your email for your verification link.",
+        },
+        ecommerce: {
+            name: "ShopSwift",
+            icon: "🛒",
+            accent: "#f59e0b",
+            title: "ShopSwift — New Account Registration",
+            subtitle: "Create your account to start shopping. Multiple accounts to abuse referral bonuses are detected automatically.",
+            context: "ShopSwift-User-Registration",
+            sectionTitle: "Account Details",
+            submitLabel: "Create Account",
+            fields: [
+                { id: "full_name",     label: "Full Name",                 type: "text",  placeholder: "e.g. Anjali Patel",      category: "FullName",     hint: "For order delivery and invoices",             required: true  },
+                { id: "email",         label: "Email Address",             type: "email", placeholder: "you@example.com",         category: "EmailAddress", hint: "Your login ID and for order updates",          required: true  },
+                { id: "phone",         label: "Phone Number",              type: "text",  placeholder: "10-digit mobile number",  category: null,           hint: "For delivery coordination",                   required: true  },
+                { id: "referral_code", label: "Referral Code (Optional)",  type: "text",  placeholder: "e.g. FRIEND100",          category: null,           hint: "Enter a referral code for ₹200 off first order", required: false },
+            ],
+            successMsg: "✅ Account created! Welcome to ShopSwift. Your ₹200 new user coupon has been applied to your account.",
+        },
+        insurance: {
+            name: "SafeShield",
+            icon: "🛡️",
+            accent: "#10b981",
+            title: "SafeShield — Claim Registration",
+            subtitle: "File your insurance claim. Duplicate claims for the same incident are detected automatically.",
+            context: "SafeShield-Claim-Registration",
+            sectionTitle: "Claimant Information",
+            submitLabel: "File Claim",
+            fields: [
+                { id: "full_name",    label: "Policyholder Name",  type: "text",   placeholder: "e.g. Vikram Singh",  category: "FullName",     hint: "As per your policy document",        required: true },
+                { id: "email",        label: "Email Address",      type: "email",  placeholder: "you@example.com",    category: "EmailAddress", hint: "For claim status updates",           required: true },
+                { id: "policy_type",  label: "Policy Type",        type: "select", options: ["— Select —", "Health Insurance", "Vehicle Insurance", "Life Insurance", "Property Insurance", "Travel Insurance"], category: null, required: true },
+                { id: "claim_amount", label: "Claim Amount (₹)",   type: "text",   placeholder: "e.g. 50000",         category: null,           hint: "Estimated claim value in rupees",    required: true },
+            ],
+            successMsg: "✅ Claim registered! A claims officer will contact you within 48 hours.",
+        },
+    };
 
-            // Active field label
-            const labels = { applicant_full_name: 'Full Name', email_id: 'Email', aadhaar_number: 'Aadhaar' };
-            bp.field.textContent = labels[fieldId] || fieldId;
+    let currentPlatform = "edtech";
+    let inputState = {};
+    const submitBtn    = document.getElementById('submit-btn');
+    const messageBanner = document.getElementById('message-banner');
 
-            // Pattern assessment
-            let pattern, cls;
-            if (cpsVal > 35) {
-                pattern = '⚠ BOT DETECTED'; cls = 'bot';
-            } else if (state.pastes > 0 && cpsVal > 15) {
-                pattern = '⚡ SUSPICIOUS'; cls = 'sus';
-            } else if (state.pastes > 0) {
-                pattern = '⚡ PASTE DETECTED'; cls = 'sus';
-            } else if (ks.length > 3) {
-                pattern = '✓ HUMAN-LIKE'; cls = 'human';
-            } else {
-                pattern = 'MONITORING...'; cls = 'idle';
-            }
-            bp.pattern.textContent = pattern;
-            bp.pattern.className   = 'pattern-badge ' + cls;
-        }
+    // ── Behavioral telemetry panel ───────────────────────────────────────────
+    const bp = {
+        cps:     document.getElementById('bp-cps'),
+        cpsBar:  document.getElementById('bp-cps-bar'),
+        ks:      document.getElementById('bp-ks'),
+        del:     document.getElementById('bp-del'),
+        paste:   document.getElementById('bp-paste'),
+        time:    document.getElementById('bp-time'),
+        pattern: document.getElementById('bp-pattern'),
+        field:   document.getElementById('bp-field'),
+    };
 
-        function showMessage(msg, type) {
-            const colors = {
-                success: { bg: "#dcfce7", color: "#166534" },
-                error:   { bg: "#fee2e2", color: "#912727" },
-                warning: { bg: "#fef9c3", color: "#92400e" },
-            };
-            const c = colors[type] || colors.error;
-            messageBanner.innerText = msg;
-            messageBanner.style.display = "block";
-            messageBanner.style.backgroundColor = c.bg;
-            messageBanner.style.color = c.color;
-        }
+    function updatePanel(fieldId, state) {
+        const ks    = state.keystrokes || [];
+        const timeMs = ks.length > 1 ? ks[ks.length - 1] - ks[0] : 0;
+        const cpsVal = timeMs > 0 ? parseFloat((ks.length / (timeMs / 1000)).toFixed(1)) : 0;
 
-        // Real-time monitoring via keyup
-        document.addEventListener("keyup", (event) => {
-            const target = event.target;
-            if (!["INPUT"].includes(target.tagName)) return;
+        const barPct  = Math.min((cpsVal / 50) * 100, 100);
+        const barColor = cpsVal > 35 ? '#f87171' : cpsVal > 15 ? '#fbbf24' : '#34d399';
+        bp.cpsBar.style.width      = barPct + '%';
+        bp.cpsBar.style.background = barColor;
 
-            const fieldId = target.id;
-            const category = FIELD_MAP[fieldId];
-            if (!category) return;
+        const cpsClass = cpsVal > 35 ? 'red' : cpsVal > 15 ? 'yellow' : 'green';
+        bp.cps.textContent = cpsVal > 0 ? cpsVal + ' CPS' : '— CPS';
+        bp.cps.className   = 'brow-value ' + cpsClass;
 
-            if (!inputState[fieldId]) inputState[fieldId] = { keystrokes: [], deletions: 0, pastes: 0 };
+        bp.ks.textContent    = ks.length;
+        bp.del.textContent   = state.deletions || 0;
+        bp.paste.textContent = state.pastes || 0;
+        bp.time.textContent  = timeMs > 0 ? (timeMs / 1000).toFixed(1) + 's' : '—';
 
-            if (event.key === "Backspace" || event.key === "Delete") {
-                inputState[fieldId].deletions += 1;
-            } else {
-                inputState[fieldId].keystrokes.push(Date.now());
-            }
+        const fieldLabels = Object.fromEntries(PLATFORMS[currentPlatform].fields.map(f => [f.id, f.label]));
+        bp.field.textContent = fieldLabels[fieldId] || fieldId;
 
-            updatePanel(fieldId, inputState[fieldId]);
+        let pattern, cls;
+        if      (cpsVal > 35)                         { pattern = '⚠ BOT DETECTED';   cls = 'bot'; }
+        else if (state.pastes > 0 && cpsVal > 15)     { pattern = '⚡ SUSPICIOUS';    cls = 'sus'; }
+        else if (state.pastes > 0)                    { pattern = '⚡ PASTE DETECTED'; cls = 'sus'; }
+        else if (ks.length > 3)                       { pattern = '✓ HUMAN-LIKE';      cls = 'human'; }
+        else                                           { pattern = 'MONITORING...';    cls = 'idle'; }
 
-            clearTimeout(inputState[fieldId].timer);
-            inputState[fieldId].timer = setTimeout(() => {
-                const ks = inputState[fieldId].keystrokes;
-                const timeToCompleteMs = ks.length > 1 ? ks[ks.length - 1] - ks[0] : 0;
-                const cps = timeToCompleteMs > 0 ? (ks.length / (timeToCompleteMs / 1000)).toFixed(2) : 0;
+        bp.pattern.textContent = pattern;
+        bp.pattern.className   = 'pattern-badge ' + cls;
+    }
 
-                fetch(`${API}/api/analyze`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "X-API-Key": _cfg.h },
-                    body: JSON.stringify({
-                        formContext: "PM-KISAN-Registration",
-                        fieldName: category,
-                        value: target.value,
-                        behavior: {
-                            keystrokesCount: ks.length,
-                            deletionsCount: inputState[fieldId].deletions,
-                            pastesCount: inputState[fieldId].pastes,
-                            timeToCompleteMs,
-                            cps: parseFloat(cps)
-                        }
-                    })
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data?.riskLevel === "HIGH" || data?.riskLevel === "MEDIUM") {
-                        target.style.border = `2px solid ${data.riskLevel === "HIGH" ? "#ef4444" : "#f97316"}`;
-                        target.style.boxShadow = `0 0 8px ${data.riskLevel === "HIGH" ? "rgba(239,68,68,0.3)" : "rgba(249,115,22,0.3)"}`;
-                        showTooltip(target, data.message, data.riskLevel);
-                    } else {
-                        target.style.border = "";
-                        target.style.boxShadow = "";
-                        clearTooltip(target);
-                    }
-                })
-                .catch(() => {});
-            }, 1200);
+    // ── Platform switching ───────────────────────────────────────────────────
+    function switchPlatform(key) {
+        currentPlatform = key;
+        const p = PLATFORMS[key];
+        inputState = {};
+        messageBanner.style.display = 'none';
+
+        document.documentElement.style.setProperty('--accent', p.accent);
+
+        document.getElementById('header-icon').textContent     = p.icon;
+        document.getElementById('header-title').textContent    = p.title;
+        document.getElementById('header-subtitle').textContent = p.subtitle;
+        document.getElementById('form-header').style.background = p.accent;
+        document.getElementById('section-title').textContent   = p.sectionTitle;
+        document.getElementById('context-label').textContent   = `FraudGuard SDK — ${p.name} context active`;
+        submitBtn.textContent = p.submitLabel;
+
+        document.querySelectorAll('.platform-tab').forEach(t => {
+            t.classList.toggle('active', t.dataset.platform === key);
         });
 
-        document.addEventListener("paste", (event) => {
-            const target = event.target;
-            const fieldId = target.id;
-            if (!FIELD_MAP[fieldId]) return;
-            if (!inputState[fieldId]) inputState[fieldId] = { keystrokes: [], deletions: 0, pastes: 0 };
-            inputState[fieldId].pastes += 1;
-            updatePanel(fieldId, inputState[fieldId]);
-        });
+        renderFields(p.fields);
+    }
 
-        // Submit
-        submitBtn.addEventListener('click', () => {
-            const name     = document.getElementById('applicant_full_name').value.trim();
-            const email    = document.getElementById('email_id').value.trim();
-            const aadhaar  = document.getElementById('aadhaar_number').value.trim();
-            const category = document.getElementById('farmer_category').value;
-            const state    = document.getElementById('state_name').value;
-            const district = document.getElementById('district').value.trim();
+    function renderFields(fields) {
+        const container = document.getElementById('form-fields');
+        container.innerHTML = '';
 
-            if (!name || !email || !aadhaar || !category || !state || !district) {
-                return showMessage("Please fill in all mandatory fields before submitting.", "error");
-            }
-            if (aadhaar.length !== 12 || isNaN(aadhaar)) {
-                return showMessage("Aadhaar number must be exactly 12 digits.", "error");
-            }
+        for (let i = 0; i < fields.length; i += 2) {
+            const row = document.createElement('div');
+            row.className = 'form-row';
 
-            submitBtn.disabled = true;
-            submitBtn.textContent = "Verifying…";
-            messageBanner.style.display = "none";
+            [fields[i], fields[i + 1]].forEach(f => {
+                if (!f) return;
+                const group = document.createElement('div');
+                group.className = 'input-group';
 
-            const ks = inputState['applicant_full_name']?.keystrokes || [];
-            const timeMs = ks.length > 1 ? ks[ks.length - 1] - ks[0] : 0;
+                const label = document.createElement('label');
+                label.htmlFor = f.id;
+                label.innerHTML = f.label + (f.required ? ' <span class="req">*</span>' : '');
+                group.appendChild(label);
 
-            fetch(`${API}/api/submit`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "X-API-Key": _cfg.h },
+                let input;
+                if (f.type === 'select') {
+                    input = document.createElement('select');
+                    input.id = f.id;
+                    (f.options || []).forEach(opt => {
+                        const o = document.createElement('option');
+                        o.value = opt.startsWith('—') ? '' : opt;
+                        o.textContent = opt;
+                        input.appendChild(o);
+                    });
+                } else {
+                    input = document.createElement('input');
+                    input.type        = f.type;
+                    input.id          = f.id;
+                    input.placeholder = f.placeholder || '';
+                    input.autocomplete = 'off';
+                }
+                input.name = f.id;
+                group.appendChild(input);
+
+                if (f.hint) {
+                    const hint = document.createElement('p');
+                    hint.className   = 'hint';
+                    hint.textContent = f.hint;
+                    group.appendChild(hint);
+                }
+                row.appendChild(group);
+            });
+
+            container.appendChild(row);
+        }
+    }
+
+    document.getElementById('platform-bar').addEventListener('click', e => {
+        const tab = e.target.closest('.platform-tab');
+        if (tab) switchPlatform(tab.dataset.platform);
+    });
+
+    // ── Real-time monitoring ─────────────────────────────────────────────────
+    function getFieldCategory(fieldId) {
+        const f = PLATFORMS[currentPlatform].fields.find(f => f.id === fieldId);
+        return f ? f.category : null;
+    }
+
+    document.addEventListener('keyup', (event) => {
+        const target = event.target;
+        if (target.tagName !== 'INPUT') return;
+
+        const fieldId  = target.id;
+        const category = getFieldCategory(fieldId);
+        if (!category) return;
+
+        if (!inputState[fieldId]) inputState[fieldId] = { keystrokes: [], deletions: 0, pastes: 0 };
+
+        if (event.key === 'Backspace' || event.key === 'Delete') {
+            inputState[fieldId].deletions += 1;
+        } else {
+            inputState[fieldId].keystrokes.push(Date.now());
+        }
+
+        updatePanel(fieldId, inputState[fieldId]);
+
+        clearTimeout(inputState[fieldId].timer);
+        inputState[fieldId].timer = setTimeout(() => {
+            const ks = inputState[fieldId].keystrokes;
+            const timeToCompleteMs = ks.length > 1 ? ks[ks.length - 1] - ks[0] : 0;
+            const cps = timeToCompleteMs > 0 ? (ks.length / (timeToCompleteMs / 1000)).toFixed(2) : 0;
+
+            fetch(`${API}/api/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-API-Key': _cfg.h },
                 body: JSON.stringify({
-                    formContext: "PM-KISAN-Registration",
-                    fieldName: "FinalSubmit",
-                    value: name,
-                    identityDetails: { FullName: name, EmailAddress: email, GovID: aadhaar },
+                    formContext: PLATFORMS[currentPlatform].context,
+                    fieldName: category,
+                    value: target.value,
                     behavior: {
                         keystrokesCount: ks.length,
-                        deletionsCount: inputState['applicant_full_name']?.deletions || 0,
-                        pastesCount: inputState['applicant_full_name']?.pastes || 0,
-                        timeToCompleteMs: timeMs,
-                        cps: timeMs > 0 ? parseFloat((ks.length / (timeMs / 1000)).toFixed(2)) : 0
+                        deletionsCount: inputState[fieldId].deletions,
+                        pastesCount: inputState[fieldId].pastes,
+                        timeToCompleteMs,
+                        cps: parseFloat(cps)
                     }
                 })
             })
             .then(r => r.json())
             .then(data => {
-                if (data.detail) {
-                    showMessage(data.detail, "error");
-                } else if (data.status === "success") {
-                    showMessage("✅ Registration Successful! You are now enrolled in PM-KISAN. Expect ₹6,000/year credited to your bank account.", "success");
-                } else if (data.status === "pending_review") {
-                    const ref     = data.caseId ? data.caseId.slice(0, 8).toUpperCase() : "N/A";
-                    const fullId  = data.caseId || "";
-                    const statusUrl = `status.html?ref=${fullId}`;
-                    messageBanner.innerHTML = `
-                        <div style="margin-bottom:6px">⏳ Your registration is under officer review.</div>
-                        <div style="margin-bottom:6px">Reference No: <strong>${ref}</strong> — keep this for your records.</div>
-                        <div>Track your application: <a href="${statusUrl}" target="_blank"
-                            style="color:#1d4ed8;text-decoration:underline;font-weight:700;">
-                            Check Application Status →</a></div>`;
-                    messageBanner.style.display = "block";
-                    messageBanner.style.backgroundColor = "#fef9c3";
-                    messageBanner.style.color = "#92400e";
+                if (data?.riskLevel === 'HIGH' || data?.riskLevel === 'MEDIUM') {
+                    target.style.border    = `2px solid ${data.riskLevel === 'HIGH' ? '#ef4444' : '#f97316'}`;
+                    target.style.boxShadow = `0 0 8px ${data.riskLevel === 'HIGH' ? 'rgba(239,68,68,0.3)' : 'rgba(249,115,22,0.3)'}`;
+                    showTooltip(target, data.message, data.riskLevel);
                 } else {
-                    showMessage("Submission error. Please try again.", "error");
+                    target.style.border    = '';
+                    target.style.boxShadow = '';
+                    clearTooltip(target);
                 }
             })
-            .catch(() => showMessage("Cannot reach verification server. Please try again later.", "error"))
-            .finally(() => {
-                submitBtn.disabled = false;
-                submitBtn.textContent = "Submit Registration";
-            });
+            .catch(() => {});
+        }, 1200);
+    });
+
+    document.addEventListener('paste', (event) => {
+        const target  = event.target;
+        const fieldId = target.id;
+        if (!getFieldCategory(fieldId)) return;
+        if (!inputState[fieldId]) inputState[fieldId] = { keystrokes: [], deletions: 0, pastes: 0 };
+        inputState[fieldId].pastes += 1;
+        updatePanel(fieldId, inputState[fieldId]);
+    });
+
+    // ── Submit ───────────────────────────────────────────────────────────────
+    submitBtn.addEventListener('click', () => {
+        const p     = PLATFORMS[currentPlatform];
+        const name  = document.getElementById('full_name')?.value.trim();
+        const email = document.getElementById('email')?.value.trim();
+
+        const missing = p.fields.filter(f => {
+            if (!f.required) return false;
+            const el = document.getElementById(f.id);
+            return !el || !el.value.trim();
         });
-
-        // Tooltip helpers
-        function showTooltip(element, message, riskLevel) {
-            let tooltip = element._fgTooltip;
-            if (!tooltip) {
-                tooltip = document.createElement("div");
-                tooltip.style.cssText = `
-                    position: absolute; z-index: 9999; padding: 5px 10px;
-                    border-radius: 6px; font-size: 12px; font-weight: 600;
-                    color: white; pointer-events: none; margin-top: 4px;
-                `;
-                element.parentNode.style.position = "relative";
-                element.parentNode.appendChild(tooltip);
-                element._fgTooltip = tooltip;
-            }
-            tooltip.style.backgroundColor = riskLevel === "HIGH" ? "#ef4444" : "#f97316";
-            tooltip.textContent = message;
+        if (missing.length > 0) {
+            return showMessage('Please fill in all required fields before submitting.', 'error');
         }
 
-        function clearTooltip(element) {
-            if (element._fgTooltip) {
-                element._fgTooltip.remove();
-                element._fgTooltip = null;
+        submitBtn.disabled    = true;
+        submitBtn.textContent = 'Verifying…';
+        messageBanner.style.display = 'none';
+
+        const ks    = inputState['full_name']?.keystrokes || [];
+        const timeMs = ks.length > 1 ? ks[ks.length - 1] - ks[0] : 0;
+
+        fetch(`${API}/api/submit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': _cfg.h },
+            body: JSON.stringify({
+                formContext: p.context,
+                fieldName: 'FinalSubmit',
+                value: name,
+                identityDetails: { FullName: name, EmailAddress: email },
+                behavior: {
+                    keystrokesCount: ks.length,
+                    deletionsCount: inputState['full_name']?.deletions || 0,
+                    pastesCount: inputState['full_name']?.pastes || 0,
+                    timeToCompleteMs: timeMs,
+                    cps: timeMs > 0 ? parseFloat((ks.length / (timeMs / 1000)).toFixed(2)) : 0
+                }
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.detail) {
+                showMessage(data.detail, 'error');
+            } else if (data.status === 'success') {
+                showMessage(p.successMsg, 'success');
+            } else if (data.status === 'pending_review') {
+                const ref    = data.caseId ? data.caseId.slice(0, 8).toUpperCase() : 'N/A';
+                const fullId = data.caseId || '';
+                messageBanner.innerHTML = `
+                    <div style="margin-bottom:6px">⏳ Your submission is under review.</div>
+                    <div style="margin-bottom:6px">Reference No: <strong>${ref}</strong> — keep this for your records.</div>
+                    <div>Track status: <a href="status.html?ref=${fullId}" target="_blank"
+                        style="color:#1d4ed8;text-decoration:underline;font-weight:700;">Check Application Status →</a></div>`;
+                messageBanner.style.display       = 'block';
+                messageBanner.style.backgroundColor = '#fef9c3';
+                messageBanner.style.color           = '#92400e';
+            } else {
+                showMessage('Submission error. Please try again.', 'error');
             }
+        })
+        .catch(() => showMessage('Cannot reach verification server. Please try again later.', 'error'))
+        .finally(() => {
+            submitBtn.disabled    = false;
+            submitBtn.textContent = p.submitLabel;
+        });
+    });
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function showMessage(msg, type) {
+        const colors = {
+            success: { bg: '#dcfce7', color: '#166534' },
+            error:   { bg: '#fee2e2', color: '#912727' },
+            warning: { bg: '#fef9c3', color: '#92400e' },
+        };
+        const c = colors[type] || colors.error;
+        messageBanner.textContent        = msg;
+        messageBanner.style.display      = 'block';
+        messageBanner.style.backgroundColor = c.bg;
+        messageBanner.style.color        = c.color;
+    }
+
+    function showTooltip(element, message, riskLevel) {
+        let tooltip = element._fgTooltip;
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.style.cssText = `
+                position: absolute; z-index: 9999; padding: 5px 10px;
+                border-radius: 6px; font-size: 12px; font-weight: 600;
+                color: white; pointer-events: none; margin-top: 4px;
+            `;
+            element.parentNode.style.position = 'relative';
+            element.parentNode.appendChild(tooltip);
+            element._fgTooltip = tooltip;
         }
-    </script>
+        tooltip.style.backgroundColor = riskLevel === 'HIGH' ? '#ef4444' : '#f97316';
+        tooltip.textContent = message;
+    }
+
+    function clearTooltip(element) {
+        if (element._fgTooltip) {
+            element._fgTooltip.remove();
+            element._fgTooltip = null;
+        }
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    document.documentElement.style.setProperty('--accent', PLATFORMS.edtech.accent);
+    switchPlatform('edtech');
+</script>
 </body>
 </html>
