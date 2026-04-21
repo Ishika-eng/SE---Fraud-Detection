@@ -48,6 +48,14 @@ def apply_rules(ml_result: dict, behavior: dict) -> dict | None:
             "auto": True,
         }
 
+    # High email similarity alone — email is essentially unique, this is the same person
+    if email_sim > 92:
+        return {
+            "decision": "REJECT",
+            "reason": f"Email already registered ({email_sim:.1f}% match). Email addresses are unique identifiers — this is the same person.",
+            "auto": True,
+        }
+
     # Very low similarity on both — safe despite being flagged (edge threshold case)
     if name_sim < 30 and email_sim < 30:
         return {
