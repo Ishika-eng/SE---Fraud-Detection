@@ -4,6 +4,7 @@ import logging
 import os
 import json
 import hashlib
+import asyncio
 from sentence_transformers import SentenceTransformer
 from app.core.config import settings
 
@@ -29,6 +30,10 @@ class MLEngine:
         # Thresholds loaded from settings — admin-configurable at runtime (FR-20, BR-2)
         self.high_threshold: float = settings.HIGH_RISK_THRESHOLD
         self.medium_threshold: float = settings.MEDIUM_RISK_THRESHOLD
+        self.bot_cps_threshold: float = settings.BOT_CPS_THRESHOLD
+
+        # Mutex — FAISS is not thread-safe; all index reads/writes must hold this lock
+        self._lock = asyncio.Lock()
 
         if not os.path.exists(INDEX_DIR):
             os.makedirs(INDEX_DIR)
@@ -58,10 +63,12 @@ class MLEngine:
         else:
             self.gov_id_hashes = set()
 
-    def update_thresholds(self, high: float, medium: float):
+    def update_thresholds(self, high: float, medium: float, bot_cps: float = None):
         self.high_threshold = high
         self.medium_threshold = medium
-        logger.info(f"Thresholds updated — HIGH: {high}%, MEDIUM: {medium}%")
+        if bot_cps is not None:
+            self.bot_cps_threshold = bot_cps
+        logger.info(f"Thresholds updated — HIGH: {high}%, MEDIUM: {medium}%, BOT_CPS: {self.bot_cps_threshold}")
 
     def _hash_gov_id(self, gov_id: str) -> str:
         """SHA-256 of normalized GovID — GovID plaintext is never stored."""
@@ -86,27 +93,38 @@ class MLEngine:
 
         logger.info("Categorized AI State persisted to disk.")
 
-    def evaluate_composite_risk(self, details: dict) -> dict:
+    async def evaluate_composite_risk(self, details: dict) -> dict:
         """
         Multi-factor identity check.
-        GovID uses exact SHA-256 hash match — never similarity.
-        FullName and EmailAddress use vector similarity.
-        """
-        # 1. GovID: exact hash match — similarity matching is wrong here
-        gov_id_val = details.get("GovID", "")
-        gov_id_registered = self._check_gov_id_exact(gov_id_val)
 
-        if gov_id_registered:
+        Decision hierarchy:
+        1. GovID provided + hash found   → HIGH (definitive duplicate, stop here)
+        2. GovID provided + hash NOT found → LOW (Aadhaar is authoritative; different Aadhaar = different person)
+        3. GovID not provided            → fallback to name + email similarity
+        """
+        gov_id_val = details.get("GovID", "").strip()
+        gov_id_provided = bool(gov_id_val and len(gov_id_val) >= 3)
+
+        if gov_id_provided:
+            if self._check_gov_id_exact(gov_id_val):
+                return {
+                    "riskLevel": "HIGH",
+                    "similarityScore": 100.0,
+                    "message": "CRITICAL: Government ID is already registered. Submission flagged for officer review.",
+                    "matchedValue": None
+                }
+            # Different Aadhaar = definitively different person — name similarity is irrelevant
             return {
-                "riskLevel": "HIGH",
-                "similarityScore": 100.0,
-                "message": "CRITICAL: Government ID is already registered. Submission rejected.",
-                "matchedValue": None  # Never reveal what the match was
+                "riskLevel": "LOW",
+                "similarityScore": 0.0,
+                "message": "Identity is unique. Aadhaar verified as new.",
+                "matchedValue": None
             }
 
-        # 2. Name + Email: vector similarity
-        name_result = self.compute_similarity(details.get("FullName", ""), category="FullName")
-        email_result = self.compute_similarity(details.get("EmailAddress", ""), category="EmailAddress")
+        # GovID not provided — use name + email similarity as fallback signal
+        async with self._lock:
+            name_result = self.compute_similarity(details.get("FullName", ""), category="FullName")
+            email_result = self.compute_similarity(details.get("EmailAddress", ""), category="EmailAddress")
 
         name_sim = name_result.get("similarityScore", 0.0)
         email_sim = email_result.get("similarityScore", 0.0)
@@ -119,19 +137,19 @@ class MLEngine:
             explanation = f"FLAGGED: Duplicate identity detected (Name {name_sim:.1f}%, Email {email_sim:.1f}%). Pending officer review."
         elif email_sim > self.high_threshold:
             risk_level = "HIGH"
-            explanation = f"SUSPICIOUS: Email already registered ({email_sim:.1f}% match) to a different name. Pending officer review."
-        elif name_sim > self.high_threshold:
+            explanation = f"SUSPICIOUS: Email already registered ({email_sim:.1f}% match). Pending officer review."
+        elif name_sim > self.high_threshold and email_sim > self.medium_threshold:
             risk_level = "MEDIUM"
-            explanation = f"SHARED NAME: Name matches ({name_sim:.1f}%) but identifiers differ. Proceed with caution."
+            explanation = f"POSSIBLE DUPLICATE: Similar name ({name_sim:.1f}%) and email ({email_sim:.1f}%) without Aadhaar to resolve. Pending review."
 
         return {
             "riskLevel": risk_level,
             "similarityScore": max(name_sim, email_sim),
             "message": explanation,
-            "matchedValue": name_result.get("matchedValue")
+            "matchedValue": None  # Never expose registry values in API response
         }
 
-    def evaluate_risk(self, input_text: str, behavior: dict, category: str = "FullName") -> dict:
+    async def evaluate_risk(self, input_text: str, behavior: dict, category: str = "FullName") -> dict:
         """
         Standard evaluation for real-time monitoring.
         GovID is never similarity-matched during typing — only checked at submission.
@@ -141,7 +159,8 @@ class MLEngine:
             return {"riskLevel": "LOW", "similarityScore": 0.0, "matchedValue": None,
                     "message": "Government ID will be verified on submission."}
 
-        sim_result = self.compute_similarity(input_text, category=category)
+        async with self._lock:
+            sim_result = self.compute_similarity(input_text, category=category)
         
         risk_level = sim_result["riskLevel"]
         score = sim_result["similarityScore"]
@@ -149,20 +168,20 @@ class MLEngine:
         
         cps = behavior.get('cps', 0)
         pastes = behavior.get('pastesCount', 0)
-        
+
         explanation = sim_result["message"]
-        
-        # Add behavioral heuristics
-        if cps > 35:
+
+        # Behavioral heuristics — CPS threshold is admin-configurable (not hardcoded)
+        if cps > self.bot_cps_threshold:
             risk_level = "HIGH"
-            explanation = f"BOT DETECTION: Robotic typing speed ({cps} CPS)."
+            explanation = f"BOT DETECTION: Robotic typing speed ({cps} CPS, threshold: {self.bot_cps_threshold})."
         elif pastes > 0 and risk_level != "LOW":
             explanation = f"SUSPICIOUS: Data pasted + {explanation}"
 
         return {
             "riskLevel": risk_level,
             "similarityScore": score,
-            "matchedValue": matched,
+            "matchedValue": None,  # Never expose registry values in API response
             "message": explanation
         }
 
@@ -198,34 +217,36 @@ class MLEngine:
         return {
             "riskLevel": risk_level,
             "similarityScore": max_similarity,
-            "matchedValue": closest_match,
+            "matchedValue": None,  # Internal only — never surfaced to API callers
             "message": f"{category} match: {max_similarity:.1f}%."
         }
 
-    def add_identity(self, details: dict):
-        """Adds a full composite identity to indices.
+    async def add_identity(self, details: dict):
+        """Adds a verified LOW-risk identity to indices.
         GovID is stored as SHA-256 hash only — never in FAISS or plaintext registry.
+        MEDIUM/HIGH risk submissions are never committed here (caller responsibility).
         """
-        # GovID: hash only
-        gov_id = details.get("GovID")
-        if gov_id and len(gov_id.strip()) >= 3:
-            self.gov_id_hashes.add(self._hash_gov_id(gov_id))
+        async with self._lock:
+            # GovID: hash only
+            gov_id = details.get("GovID")
+            if gov_id and len(gov_id.strip()) >= 3:
+                self.gov_id_hashes.add(self._hash_gov_id(gov_id))
 
-        # FullName + EmailAddress: vector similarity index
-        for cat in self.categories:  # ["FullName", "EmailAddress"]
-            val = details.get(cat)
-            if not val or len(val.strip()) < 3:
-                continue
+            # FullName + EmailAddress: vector similarity index
+            for cat in self.categories:
+                val = details.get(cat)
+                if not val or len(val.strip()) < 3:
+                    continue
 
-            vector = self.model.encode([val])
-            faiss.normalize_L2(vector)
+                vector = self.model.encode([val])
+                faiss.normalize_L2(vector)
 
-            index = self.indices[cat]
-            current_count = index.ntotal
-            index.add(vector)
-            self.vector_store[cat][str(current_count)] = val
+                index = self.indices[cat]
+                current_count = index.ntotal
+                index.add(vector)
+                self.vector_store[cat][str(current_count)] = val
 
-        self.save_state()
+            self.save_state()
         logger.info("Composite identity committed to indices.")
 
 # Singleton instantiated upon FastAPI boot

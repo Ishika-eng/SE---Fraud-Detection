@@ -24,7 +24,7 @@ def _mask_sensitive(value: str, field_name: str) -> str:
 async def analyze_input(request: Request, payload: InputPayload):
     """FR-1/FR-2: Real-time field monitoring — rate limited to 60 req/min per IP."""
     start_time = time.time()
-    result = ml_engine.evaluate_risk(payload.value, payload.behavior.dict(), category=payload.fieldName)
+    result = await ml_engine.evaluate_risk(payload.value, payload.behavior.dict(), category=payload.fieldName)
     latency_ms = (time.time() - start_time) * 1000
 
     alert_record = {
@@ -59,7 +59,7 @@ async def submit_identity(request: Request, payload: InputPayload):
     LOW/MEDIUM → identity committed immediately.
     """
     details = payload.identityDetails or {"FullName": payload.value}
-    result = ml_engine.evaluate_composite_risk(details)
+    result = await ml_engine.evaluate_composite_risk(details)
 
     base_record = {
         "id": str(uuid.uuid4()),
@@ -89,8 +89,26 @@ async def submit_identity(request: Request, payload: InputPayload):
             "caseId": base_record["id"]
         }
 
-    # LOW or MEDIUM — commit identity
-    ml_engine.add_identity(details)
+    if result["riskLevel"] == "MEDIUM":
+        # MEDIUM risk: log and queue for soft review — do NOT commit to index to prevent registry poisoning
+        review_case = {
+            **base_record,
+            "status": "pending",
+            "identityDetails": details,
+            "explanation": result["message"],
+        }
+        await db.insert_review_case(review_case)
+        await db.insert_alert({**base_record, "status": "flagged_for_review", "explanation": result["message"]})
+
+        return {
+            "status": "pending_review",
+            "message": "Your submission is under review. You will be contacted if additional verification is needed.",
+            "riskLevel": "MEDIUM",
+            "caseId": base_record["id"]
+        }
+
+    # LOW risk only — safe to commit to index
+    await ml_engine.add_identity(details)
     await db.insert_identity({"id": base_record["id"], "name": payload.value, "timestamp": time.time()})
     await db.insert_alert({**base_record, "status": "submit_approved"})
 

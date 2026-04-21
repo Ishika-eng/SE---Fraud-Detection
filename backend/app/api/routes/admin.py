@@ -59,7 +59,7 @@ async def approve_case(case_id: str, body: ReviewDecision, officer: str = Depend
 
     # Commit identity to FAISS
     if case.get("identityDetails"):
-        ml_engine.add_identity(case["identityDetails"])
+        await ml_engine.add_identity(case["identityDetails"])
 
     await db.update_review_case(case_id, "approved", body.officer_note)
     await db.insert_audit_log({
@@ -96,23 +96,32 @@ async def get_thresholds():
 class ThresholdUpdate(BaseModel):
     high_risk_threshold: float
     medium_risk_threshold: float
+    bot_cps_threshold: float = None  # Optional — defaults to current value if omitted
 
 
 @router.put("/thresholds")
 async def update_thresholds(body: ThresholdUpdate, officer: str = Depends(verify_dashboard_token)):
     if not (0 < body.medium_risk_threshold < body.high_risk_threshold <= 100):
         raise HTTPException(status_code=400, detail="medium_risk_threshold must be less than high_risk_threshold")
+    if body.bot_cps_threshold is not None and body.bot_cps_threshold <= 0:
+        raise HTTPException(status_code=400, detail="bot_cps_threshold must be positive")
 
     settings.HIGH_RISK_THRESHOLD = body.high_risk_threshold
     settings.MEDIUM_RISK_THRESHOLD = body.medium_risk_threshold
-    ml_engine.update_thresholds(body.high_risk_threshold, body.medium_risk_threshold)
+    ml_engine.update_thresholds(body.high_risk_threshold, body.medium_risk_threshold, body.bot_cps_threshold)
 
     await db.insert_audit_log({
         "id": str(uuid.uuid4()), "action": "update_thresholds",
         "high": body.high_risk_threshold, "medium": body.medium_risk_threshold,
+        "bot_cps": ml_engine.bot_cps_threshold,
         "officer": officer, "timestamp": time.time()
     })
-    return {"status": "updated", "high_risk_threshold": body.high_risk_threshold, "medium_risk_threshold": body.medium_risk_threshold}
+    return {
+        "status": "updated",
+        "high_risk_threshold": body.high_risk_threshold,
+        "medium_risk_threshold": body.medium_risk_threshold,
+        "bot_cps_threshold": ml_engine.bot_cps_threshold
+    }
 
 
 # ── Bulk Identity Import (registry seeding) ───────────────────────────────────

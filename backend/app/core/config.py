@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     HIGH_RISK_THRESHOLD: float = 85.0
     MEDIUM_RISK_THRESHOLD: float = 60.0
 
+    # Bot detection threshold — CPS above this is flagged as robotic
+    BOT_CPS_THRESHOLD: float = 35.0
+
     class Config:
         case_sensitive = True
         env_file = ".env"

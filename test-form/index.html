@@ -168,6 +168,83 @@
         .fg-input-high  { border: 2px solid #ef4444 !important; box-shadow: 0 0 8px rgba(239,68,68,0.3) !important; }
         .fg-input-medium { border: 2px solid #f97316 !important; box-shadow: 0 0 8px rgba(249,115,22,0.3) !important; }
 
+        /* Behavioral telemetry panel */
+        #behavior-panel {
+            position: fixed;
+            top: 20px; right: 20px;
+            width: 220px;
+            background: #0f1115;
+            border: 1px solid #2a2e39;
+            border-radius: 12px;
+            padding: 14px 16px;
+            z-index: 9999;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        #behavior-panel .panel-title {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: #4b5563;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #behavior-panel .panel-title::before {
+            content: '';
+            width: 6px; height: 6px;
+            background: #ef4444;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        .brow {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .brow-label { font-size: 10px; color: #6b7280; }
+        .brow-value { font-size: 12px; font-weight: 700; color: #e5e7eb; }
+        .brow-value.green  { color: #34d399; }
+        .brow-value.yellow { color: #fbbf24; }
+        .brow-value.red    { color: #f87171; }
+
+        .brow-bar {
+            height: 3px;
+            background: #1f2937;
+            border-radius: 2px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .brow-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; }
+
+        .pattern-badge {
+            margin-top: 10px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+        .pattern-badge.human   { background: #064e3b; color: #34d399; border: 1px solid #065f46; }
+        .pattern-badge.sus     { background: #451a03; color: #fbbf24; border: 1px solid #78350f; }
+        .pattern-badge.bot     { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; animation: pulse 0.8s infinite; }
+        .pattern-badge.idle    { background: #1f2937; color: #4b5563; border: 1px solid #374151; }
+
+        .panel-field {
+            font-size: 9px;
+            color: #374151;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #1f2937;
+        }
+        .panel-field span { color: #6b7280; }
+
         .divider { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
 
         #message-banner {
@@ -216,6 +293,41 @@
     </style>
 </head>
 <body>
+
+    <!-- Behavioral Telemetry Panel (FraudGuard live signal monitor) -->
+    <div id="behavior-panel">
+        <div class="panel-title">FraudGuard Live Signals</div>
+
+        <div class="brow">
+            <span class="brow-label">Typing Speed</span>
+            <span class="brow-value" id="bp-cps">— CPS</span>
+        </div>
+        <div class="brow-bar"><div class="brow-bar-fill" id="bp-cps-bar" style="width:0%;background:#34d399"></div></div>
+
+        <div class="brow">
+            <span class="brow-label">Keystrokes</span>
+            <span class="brow-value" id="bp-ks">0</span>
+        </div>
+
+        <div class="brow">
+            <span class="brow-label">Deletions</span>
+            <span class="brow-value" id="bp-del">0</span>
+        </div>
+
+        <div class="brow">
+            <span class="brow-label">Paste Events</span>
+            <span class="brow-value" id="bp-paste">0</span>
+        </div>
+
+        <div class="brow">
+            <span class="brow-label">Time on Field</span>
+            <span class="brow-value" id="bp-time">—</span>
+        </div>
+
+        <div class="pattern-badge idle" id="bp-pattern">IDLE</div>
+
+        <div class="panel-field">Active field: <span id="bp-field">—</span></div>
+    </div>
 
     <!-- Government Header -->
     <header class="gov-header">
@@ -359,6 +471,62 @@
         const submitBtn = document.getElementById('submit-btn');
         const messageBanner = document.getElementById('message-banner');
 
+        // ── Behavioral telemetry panel ────────────────────────────────────────
+        const bp = {
+            cps:     document.getElementById('bp-cps'),
+            cpsBar:  document.getElementById('bp-cps-bar'),
+            ks:      document.getElementById('bp-ks'),
+            del:     document.getElementById('bp-del'),
+            paste:   document.getElementById('bp-paste'),
+            time:    document.getElementById('bp-time'),
+            pattern: document.getElementById('bp-pattern'),
+            field:   document.getElementById('bp-field'),
+        };
+
+        function updatePanel(fieldId, state) {
+            const ks = state.keystrokes || [];
+            const timeMs = ks.length > 1 ? ks[ks.length - 1] - ks[0] : 0;
+            const cpsVal = timeMs > 0 ? parseFloat((ks.length / (timeMs / 1000)).toFixed(1)) : 0;
+
+            // CPS bar — cap visual at 50 CPS
+            const barPct = Math.min((cpsVal / 50) * 100, 100);
+            const barColor = cpsVal > 35 ? '#f87171' : cpsVal > 15 ? '#fbbf24' : '#34d399';
+            bp.cpsBar.style.width   = barPct + '%';
+            bp.cpsBar.style.background = barColor;
+
+            const cpsClass = cpsVal > 35 ? 'red' : cpsVal > 15 ? 'yellow' : 'green';
+            bp.cps.textContent  = cpsVal > 0 ? cpsVal + ' CPS' : '— CPS';
+            bp.cps.className    = 'brow-value ' + cpsClass;
+
+            // Counts
+            bp.ks.textContent    = ks.length;
+            bp.del.textContent   = state.deletions || 0;
+            bp.paste.textContent = state.pastes || 0;
+
+            // Time on field
+            bp.time.textContent = timeMs > 0 ? (timeMs / 1000).toFixed(1) + 's' : '—';
+
+            // Active field label
+            const labels = { applicant_full_name: 'Full Name', email_id: 'Email', aadhaar_number: 'Aadhaar' };
+            bp.field.textContent = labels[fieldId] || fieldId;
+
+            // Pattern assessment
+            let pattern, cls;
+            if (cpsVal > 35) {
+                pattern = '⚠ BOT DETECTED'; cls = 'bot';
+            } else if (state.pastes > 0 && cpsVal > 15) {
+                pattern = '⚡ SUSPICIOUS'; cls = 'sus';
+            } else if (state.pastes > 0) {
+                pattern = '⚡ PASTE DETECTED'; cls = 'sus';
+            } else if (ks.length > 3) {
+                pattern = '✓ HUMAN-LIKE'; cls = 'human';
+            } else {
+                pattern = 'MONITORING...'; cls = 'idle';
+            }
+            bp.pattern.textContent = pattern;
+            bp.pattern.className   = 'pattern-badge ' + cls;
+        }
+
         function showMessage(msg, type) {
             const colors = {
                 success: { bg: "#dcfce7", color: "#166534" },
@@ -388,6 +556,8 @@
             } else {
                 inputState[fieldId].keystrokes.push(Date.now());
             }
+
+            updatePanel(fieldId, inputState[fieldId]);
 
             clearTimeout(inputState[fieldId].timer);
             inputState[fieldId].timer = setTimeout(() => {
@@ -433,6 +603,7 @@
             if (!FIELD_MAP[fieldId]) return;
             if (!inputState[fieldId]) inputState[fieldId] = { keystrokes: [], deletions: 0, pastes: 0 };
             inputState[fieldId].pastes += 1;
+            updatePanel(fieldId, inputState[fieldId]);
         });
 
         // Submit
