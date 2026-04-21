@@ -178,10 +178,10 @@ class MLEngine:
 
         if name_sim > self.high_threshold:
             risk_level  = "MEDIUM"
-            explanation = f"SIMILAR NAME: Name matches {name_sim:.1f}% to an existing account. Email is new — possible coincidence or different person."
+            explanation = f"SIMILAR NAME: Name matches {name_sim:.1f}% to an existing account. Email is new."
         elif name_sim > self.medium_threshold:
-            risk_level  = "LOW"
-            explanation = f"Weak name similarity ({name_sim:.1f}%). Email is new. Treated as new identity."
+            risk_level  = "MEDIUM"
+            explanation = f"POSSIBLE MATCH: Name similarity {name_sim:.1f}%. Email is new but name warrants review."
 
         return {
             "riskLevel":       risk_level,

@@ -64,12 +64,21 @@ def apply_rules(ml_result: dict, behavior: dict) -> dict | None:
             "auto": True,
         }
 
-    # Similar name but clearly different email — common name, different person
-    if name_sim > 80 and email_sim < 25:
+    # Similar name but different email — only auto-approve if name similarity is moderate
+    # (genuinely common names like "John Smith"). High name similarity (≥88%) means
+    # it is very likely the same person using a different email — escalate to human.
+    if name_sim > 80 and name_sim < 88 and email_sim < 25:
         return {
             "decision": "APPROVE",
-            "reason": f"Common name ({name_sim:.1f}% match) but email is clearly different. Different person.",
+            "reason": f"Moderately common name ({name_sim:.1f}% match) but email is clearly different. Treated as different person.",
             "auto": True,
+        }
+
+    if name_sim >= 88 and email_sim < 25:
+        return {
+            "decision": "ESCALATE",
+            "reason": f"Very similar name ({name_sim:.1f}% match) with a different email. Could be the same person using a new email address. Human review required.",
+            "auto": False,
         }
 
     # Middle ground — LLM needed
