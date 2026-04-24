@@ -21,14 +21,23 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_client = None
+_anthropic_client = None
+_gemini_client    = None
 
-def _get_client():
-    global _client
-    if _client is None and settings.ANTHROPIC_API_KEY:
+def _get_anthropic():
+    global _anthropic_client
+    if _anthropic_client is None and settings.ANTHROPIC_API_KEY:
         import anthropic
-        _client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    return _client
+        _anthropic_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    return _anthropic_client
+
+def _get_gemini():
+    global _gemini_client
+    if _gemini_client is None and settings.GEMINI_API_KEY:
+        import google.generativeai as genai
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        _gemini_client = genai.GenerativeModel('gemini-flash-latest')
+    return _gemini_client
 
 
 def apply_rules(ml_result: dict, behavior: dict) -> dict | None:
@@ -95,14 +104,15 @@ def apply_rules(ml_result: dict, behavior: dict) -> dict | None:
 
 
 async def ask_llm(ml_result: dict, behavior: dict, platform: str) -> dict:
-    """LLM decision for middle-ground cases. Falls back to ESCALATE if unavailable."""
-    client = _get_client()
-    if not client:
-        return {
-            "decision": "ESCALATE",
-            "reason":   "LLM unavailable (no API key configured). Escalated for manual review.",
-            "auto":     False,
-        }
+    """
+    LLM decision for middle-ground cases. 
+    Prioritizes Gemini Flash (High Free Quota) -> Anthropic -> Fallback Heuristics.
+    """
+    gemini    = _get_gemini()
+    anthropic = _get_anthropic()
+
+    if not gemini and not anthropic:
+        return _heuristic_fallback(ml_result)
 
     name_sim  = ml_result.get("name_sim",  0.0)
     email_sim = ml_result.get("email_sim", 0.0)
@@ -129,40 +139,61 @@ Respond ONLY with valid JSON:
 {{"decision": "APPROVE", "reason": "one sentence"}}"""
 
     try:
-        message = _client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=120,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        text  = message.content[0].text.strip()
-        start = text.find('{')
-        end   = text.rfind('}') + 1
-        data  = json.loads(text[start:end])
+        # 1. Try Gemini (Flash) first
+        if gemini:
+            try:
+                response = gemini.generate_content(prompt)
+                text = response.text.strip()
+                return _parse_llm_json(text)
+            except Exception as ge:
+                logger.warning(f"Gemini failed: {ge}")
+                if not anthropic: raise ge
 
-        if data.get("decision") not in ("APPROVE", "REJECT", "ESCALATE"):
-            raise ValueError("Unexpected decision")
+        # 2. Try Anthropic (Haiku) as backup
+        if anthropic:
+            message = anthropic.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=120,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = message.content[0].text.strip()
+            return _parse_llm_json(text)
 
-        return {
-            "decision": data["decision"],
-            "reason":   data.get("reason", "LLM decision."),
-            "auto":     data["decision"] != "ESCALATE",
-        }
     except Exception as e:
-        logger.warning(f"LLM decision failed: {e}")
-        # Fallback: use similarity scores to make a best-effort decision
-        name_sim  = ml_result.get("name_sim",  0.0)
-        email_sim = ml_result.get("email_sim", 0.0)
-        if name_sim > 80 or email_sim > 70:
-            return {
-                "decision": "ESCALATE",
-                "reason":   f"Similarity signals are ambiguous (Name {name_sim:.1f}%, Email {email_sim:.1f}%). Escalated for officer review.",
-                "auto":     False,
-            }
+        logger.warning(f"All LLMs failed: {e}")
+        return _heuristic_fallback(ml_result)
+
+def _parse_llm_json(text: str) -> dict:
+    """Helper to extract and parse JSON from LLM response."""
+    start = text.find('{')
+    end   = text.rfind('}') + 1
+    data  = json.loads(text[start:end])
+    
+    if data.get("decision") not in ("APPROVE", "REJECT", "ESCALATE"):
+        raise ValueError("Invalid decision field in LLM response")
+        
+    return {
+        "decision": data["decision"],
+        "reason":   data.get("reason", "AI Decision"),
+        "auto":     data["decision"] != "ESCALATE",
+    }
+
+def _heuristic_fallback(ml_result: dict) -> dict:
+    """Best-effort heuristic if no LLM is available."""
+    name_sim  = ml_result.get("name_sim",  0.0)
+    email_sim = ml_result.get("email_sim", 0.0)
+    
+    if name_sim > 80 or email_sim > 70:
         return {
-            "decision": "APPROVE",
-            "reason":   f"Similarity below concern threshold (Name {name_sim:.1f}%, Email {email_sim:.1f}%). Approved.",
-            "auto":     True,
+            "decision": "ESCALATE",
+            "reason":   f"Similarity signals are high (Name {name_sim:.1f}%, Email {email_sim:.1f}%) but require human review.",
+            "auto":     False,
         }
+    return {
+        "decision": "APPROVE",
+        "reason":   "Similarity below concern threshold. Auto-approved by heuristics.",
+        "auto":     True,
+    }
 
 
 async def auto_decide(ml_result: dict, behavior: dict, platform: str) -> dict:

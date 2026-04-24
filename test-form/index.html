@@ -377,7 +377,7 @@
             fields: [
                 { id: "full_name",     label: "Full Name",                 type: "text",  placeholder: "e.g. Anjali Patel",      category: "FullName",     hint: "For order delivery and invoices",             required: true  },
                 { id: "email",         label: "Email Address",             type: "email", placeholder: "you@example.com",         category: "EmailAddress", hint: "Your login ID and for order updates",          required: true  },
-                { id: "phone",         label: "Phone Number",              type: "text",  placeholder: "10-digit mobile number",  category: null,           hint: "For delivery coordination",                   required: true  },
+                { id: "phone",         label: "Phone Number",              type: "text",  placeholder: "10-digit mobile number",  category: "PhoneNumber",  hint: "For delivery coordination",                   required: true  },
                 { id: "referral_code", label: "Referral Code (Optional)",  type: "text",  placeholder: "e.g. FRIEND100",          category: null,           hint: "Enter a referral code for ₹200 off first order", required: false },
             ],
             successMsg: "✅ Account created! Welcome to ShopSwift. Your ₹200 new user coupon has been applied to your account.",
@@ -607,6 +607,7 @@
         const p     = PLATFORMS[currentPlatform];
         const name  = document.getElementById('full_name')?.value.trim();
         const email = document.getElementById('email')?.value.trim();
+        const phone = document.getElementById('phone')?.value.trim();
 
         const missing = p.fields.filter(f => {
             if (!f.required) return false;
@@ -631,7 +632,7 @@
                 formContext: p.context,
                 fieldName: 'FinalSubmit',
                 value: name,
-                identityDetails: { FullName: name, EmailAddress: email },
+                identityDetails: { FullName: name, EmailAddress: email, PhoneNumber: phone },
                 behavior: {
                     keystrokesCount: ks.length,
                     deletionsCount: inputState['full_name']?.deletions || 0,

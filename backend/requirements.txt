@@ -10,3 +10,4 @@ python-jose[cryptography]
 bcrypt
 pydantic-settings
 anthropic
+google-generativeai

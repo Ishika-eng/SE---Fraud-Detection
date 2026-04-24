@@ -13,7 +13,8 @@ router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 def _mask_sensitive(value: str, field_name: str) -> str:
     field_lower = field_name.lower()
-    if any(t in field_lower for t in ("gov", "id", "ssn", "aadhaar", "pan", "passport")):
+    # Masking for commercial sensitive fields (Phone, Card, etc.)
+    if any(t in field_lower for t in ("phone", "mobile", "contact", "card", "iban")):
         if len(value) > 4:
             return value[:2] + "*" * (len(value) - 4) + value[-2:]
         return "***"
@@ -56,28 +57,36 @@ async def analyze_input(request: Request, payload: InputPayload):
 async def submit_identity(request: Request, payload: InputPayload):
     """
     Final submission check with auto-decision engine.
-    Rules handle obvious extremes → LLM handles middle ground → human sees ESCALATE only.
+    Aligned with commercial contexts (Edtech, Job Portal, E-Commerce, Insurance).
     """
-    details  = payload.identityDetails or {"FullName": payload.value}
-    ml_result = await ml_engine.evaluate_composite_risk(details)
-    decision  = await auto_decide(ml_result, payload.behavior.dict(), payload.formContext or "Unknown")
+    # Extract client info
+    client_ip = request.client.host if request.client else "Unknown"
+    platform  = payload.formContext or "Unknown"
+    
+    details   = payload.identityDetails or {"FullName": payload.value}
+    # Ensure platform is stored in metadata
+    details_with_meta = {**details, "platform": platform}
+
+    ml_result = await ml_engine.evaluate_composite_risk(details_with_meta, new_ip=client_ip)
+    decision  = await auto_decide(ml_result, payload.behavior.dict(), platform)
 
     base_record = {
         "id":              str(uuid.uuid4()),
         "fieldName":       payload.fieldName,
         "value":           _mask_sensitive(payload.value, payload.fieldName),
-        "formContext":     payload.formContext,
+        "formContext":     platform,
         "riskLevel":       ml_result["riskLevel"],
         "similarityScore": ml_result["similarityScore"],
         "timestamp":       time.time(),
         "aiDecision":      decision["decision"],
         "aiReason":        decision["reason"],
         "autoDecided":     decision["auto"],
+        "clientIp":        client_ip,
     }
 
     # ── APPROVE — safe, commit to registry ──────────────────────────────────
     if decision["decision"] == "APPROVE":
-        await ml_engine.add_identity(details)
+        await ml_engine.add_identity(details_with_meta, platform=platform, timestamp=str(time.time()), ip=client_ip)
         await db.insert_identity({"id": base_record["id"], "name": payload.value, "timestamp": time.time()})
         await db.insert_alert({**base_record, "status": "auto_approved", "explanation": decision["reason"]})
         return {"status": "success", "message": "Identity registered successfully."}

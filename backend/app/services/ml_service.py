@@ -12,8 +12,9 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 INDEX_DIR        = "indices"
-MAP_PATH         = "identity_registry.json"
-GOV_ID_HASH_PATH = "gov_id_hashes.json"
+# State persistence files
+MAP_PATH           = "identity_registry.json"
+PHONE_HASH_PATH    = "phone_hashes.json"
 
 
 class MLEngine:
@@ -25,13 +26,11 @@ class MLEngine:
         # FAISS categories:
         #   FullName       — full name, semantic similarity
         #   EmailLocalPart — local part of email (before @), domain stripped + normalised
-        #                    so "pranav.mahajan@gmail.com" → "pranav mahajan"
-        #                    Prevents @gmail.com inflating similarity scores
         self.categories   = ["FullName", "EmailLocalPart"]
         self.indices      = {}
         self.vector_store = {}
 
-        self.gov_id_hashes: set = set()
+        self.phone_hashes: set = set()
 
         self.high_threshold:    float = settings.HIGH_RISK_THRESHOLD
         self.medium_threshold:  float = settings.MEDIUM_RISK_THRESHOLD
@@ -64,19 +63,19 @@ class MLEngine:
         else:
             self.vector_store = {cat: {} for cat in self.categories}
 
-        if os.path.exists(GOV_ID_HASH_PATH):
-            with open(GOV_ID_HASH_PATH, 'r') as f:
-                self.gov_id_hashes = set(json.load(f))
+        if os.path.exists(PHONE_HASH_PATH):
+            with open(PHONE_HASH_PATH, 'r') as f:
+                self.phone_hashes = set(json.load(f))
         else:
-            self.gov_id_hashes = set()
+            self.phone_hashes = set()
 
     def save_state(self):
         for cat, idx in self.indices.items():
             faiss.write_index(idx, os.path.join(INDEX_DIR, f"{cat}.bin"))
         with open(MAP_PATH, 'w') as f:
             json.dump(self.vector_store, f)
-        with open(GOV_ID_HASH_PATH, 'w') as f:
-            json.dump(list(self.gov_id_hashes), f)
+        with open(PHONE_HASH_PATH, 'w') as f:
+            json.dump(list(self.phone_hashes), f)
         logger.info("ML state persisted to disk.")
 
     # ── Helpers ──────────────────────────────────────────────────────────────
@@ -88,13 +87,20 @@ class MLEngine:
             self.bot_cps_threshold = bot_cps
         logger.info(f"Thresholds updated — HIGH:{high}% MEDIUM:{medium}% BOT_CPS:{self.bot_cps_threshold}")
 
-    def _hash_gov_id(self, gov_id: str) -> str:
-        return hashlib.sha256(gov_id.strip().upper().encode()).hexdigest()
+    def _hash_value(self, value: str) -> str:
+        """Deterministic hashing for private storage."""
+        return hashlib.sha256(value.strip().upper().encode()).hexdigest()
 
-    def _check_gov_id_exact(self, gov_id: str) -> bool:
-        if not gov_id or len(gov_id.strip()) < 3:
+    def _normalize_phone(self, phone: str) -> str:
+        """Strip non-digits and keep last 10 digits for normalization."""
+        digits = re.sub(r'\D', '', phone)
+        return digits[-10:] if len(digits) >= 10 else digits
+
+    def _check_phone_exact(self, phone: str) -> bool:
+        if not phone or len(phone.strip()) < 5:
             return False
-        return self._hash_gov_id(gov_id) in self.gov_id_hashes
+        normalized = self._normalize_phone(phone)
+        return self._hash_value(normalized) in self.phone_hashes
 
     def _email_to_local(self, email: str) -> str:
         """
@@ -143,27 +149,22 @@ class MLEngine:
 
     # ── Composite risk (on submit) ───────────────────────────────────────────
 
-    async def evaluate_composite_risk(self, details: dict) -> dict:
+    async def evaluate_composite_risk(self, details: dict, new_ip: str = "") -> dict:
         """
         Checks at submission time.
-        Email domain is IGNORED — only the local part (before @) is compared.
-        Both name_sim and email_sim are real similarity scores (0–100).
+        Phone Number is the primary unique identifier (exact match).
+        Email local part and Full Name are compared via semantic similarity.
         """
-        gov_id_val = details.get("GovID", "").strip()
-        if gov_id_val and len(gov_id_val) >= 3:
-            if self._check_gov_id_exact(gov_id_val):
+        phone_val = details.get("PhoneNumber", "").strip()
+        if phone_val and len(phone_val) >= 5:
+            if self._check_phone_exact(phone_val):
                 return {
                     "riskLevel": "HIGH", "similarityScore": 100.0,
                     "name_sim": 100.0,  "email_sim": 100.0,
-                    "message": "CRITICAL: Government ID already registered.",
+                    "message": "CRITICAL: Phone number already registered to another account.",
                     "matchedValue": None,
+                    "ip_match": False, "existing_ip": "", "new_ip": new_ip,
                 }
-            return {
-                "riskLevel": "LOW", "similarityScore": 0.0,
-                "name_sim": 0.0, "email_sim": 0.0,
-                "message": "Identity verified as new via GovID.",
-                "matchedValue": None,
-            }
 
         email_raw   = details.get("EmailAddress", "")
         email_local = self._email_to_local(email_raw) if email_raw else ""
@@ -204,12 +205,11 @@ class MLEngine:
     async def evaluate_risk(self, input_text: str, behavior: dict, category: str = "FullName") -> dict:
         """
         Real-time field monitoring.
-        EmailAddress: domain stripped before comparison — no @gmail.com noise.
-        GovID: not matched during typing.
+        PhoneNumber: verified on submission.
         """
-        if category == "GovID":
+        if category == "PhoneNumber":
             return {"riskLevel": "LOW", "similarityScore": 0.0,
-                    "matchedValue": None, "message": "GovID verified on submission."}
+                    "matchedValue": None, "message": "Phone number verified on submission."}
 
         if category == "EmailAddress":
             local = self._email_to_local(input_text)
@@ -251,30 +251,31 @@ class MLEngine:
 
     # ── Add identity to registry ─────────────────────────────────────────────
 
-    async def add_identity(self, details: dict):
+    async def add_identity(self, details: dict, platform: str = "web", timestamp: str = "", ip: str = ""):
         """
         Commits a verified identity.
         Email domain is stripped — only local part stored in FAISS.
         """
         async with self._lock:
-            gov_id = details.get("GovID", "").strip()
-            if gov_id and len(gov_id) >= 3:
-                self.gov_id_hashes.add(self._hash_gov_id(gov_id))
+            phone = details.get("PhoneNumber", "").strip()
+            if phone and len(phone) >= 5:
+                normalized = self._normalize_phone(phone)
+                self.phone_hashes.add(self._hash_value(normalized))
 
             name = details.get("FullName", "").strip()
             if name and len(name) >= 3:
-                self._add_to_index(name, "FullName")
+                self._add_to_index(name, "FullName", platform=platform, timestamp=timestamp, ip=ip)
 
             email_raw = details.get("EmailAddress", "")
             if email_raw:
                 local = self._email_to_local(email_raw)
                 if local and len(local) >= 2:
-                    self._add_to_index(local, "EmailLocalPart")
+                    self._add_to_index(local, "EmailLocalPart", platform=platform, timestamp=timestamp, ip=ip)
 
             self.save_state()
         logger.info("Identity committed to registry.")
 
-    def _add_to_index(self, text: str, category: str):
+    def _add_to_index(self, text: str, category: str, platform: str = "", timestamp: str = "", ip: str = ""):
         vector = self.model.encode([text])
         faiss.normalize_L2(vector)
         idx = self.indices[category]

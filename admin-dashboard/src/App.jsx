@@ -56,8 +56,8 @@ function LoginPage({ onLogin }) {
           <ShieldAlert size={32} />
           <span>FraudGuard AI</span>
         </div>
-        <h2 className="text-white text-xl font-bold mb-1">Officer Login</h2>
-        <p className="text-gray-500 text-sm mb-8">Compliance Dashboard — Authorised Personnel Only</p>
+        <h2 className="text-white text-xl font-bold mb-1">Compliance Login</h2>
+        <p className="text-gray-500 text-sm mb-8">Fraud Monitoring Dashboard — Authorised Personnel Only</p>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="text-gray-400 text-sm font-semibold block mb-2">Username</label>
@@ -152,7 +152,13 @@ function LiveMonitorTab() {
     if (search)     params.append("search", search);
     fetch(`${API}/api/admin/alerts?${params}`, { headers: authHeaders() })
       .then(r => r.json())
-      .then(data => { setAlerts(data); setLastUpdated(Date.now()); setSecondsAgo(0); })
+      .then(data => { 
+        if (Array.isArray(data)) {
+          setAlerts(data); 
+          setLastUpdated(Date.now()); 
+          setSecondsAgo(0); 
+        }
+      })
       .catch(() => {});
   }, [riskFilter, search]);
 
@@ -184,9 +190,10 @@ function LiveMonitorTab() {
     } finally { setExporting(false); }
   }
 
-  const highCount  = alerts.filter(a => a.riskLevel === "HIGH" || a.riskLevel === "MEDIUM").length;
-  const avgLatency = alerts.length
-    ? (alerts.reduce((s, a) => s + (a.latencyMs || 0), 0) / alerts.length).toFixed(1)
+  const safeAlerts = Array.isArray(alerts) ? alerts : [];
+  const highCount  = safeAlerts.filter(a => a.riskLevel === "HIGH" || a.riskLevel === "MEDIUM").length;
+  const avgLatency = safeAlerts.length
+    ? (safeAlerts.reduce((s, a) => s + (a.latencyMs || 0), 0) / safeAlerts.length).toFixed(1)
     : 0;
 
   const staleness = secondsAgo > 10
@@ -335,8 +342,8 @@ function ReviewQueueTab() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Officer Review Queue</h1>
-          <p className="text-gray-500 text-sm">Cases the AI could not decide with confidence — human judgement required</p>
+          <h1 className="text-2xl font-bold text-white mb-1">Compliance Review Queue</h1>
+          <p className="text-gray-500 text-sm">Cases the AI flagged for manual verification (Edtech, Job, Retail, Insurance)</p>
         </div>
         <div className="flex items-center gap-3">
           <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setNotification(null); }}
@@ -400,6 +407,7 @@ function ReviewQueueTab() {
                   <div className="flex gap-4 text-xs text-gray-500 mb-2">
                     {c.identityDetails.FullName     && <span>Name: <span className="text-gray-300">{c.identityDetails.FullName}</span></span>}
                     {c.identityDetails.EmailAddress && <span>Email: <span className="text-gray-300">{c.identityDetails.EmailAddress}</span></span>}
+                    {c.identityDetails.PhoneNumber  && <span>Phone: <span className="text-gray-300">{c.identityDetails.PhoneNumber}</span></span>}
                   </div>
                 )}
                 {c.officerNote && <p className="text-gray-400 text-xs italic">Officer note: {c.officerNote}</p>}
@@ -703,7 +711,7 @@ export default function App() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-semibold truncate">{username}</p>
-              <p className="text-gray-500 text-xs">Compliance Officer</p>
+              <p className="text-gray-500 text-xs">Compliance Manager</p>
             </div>
           </div>
           <button onClick={handleLogout}

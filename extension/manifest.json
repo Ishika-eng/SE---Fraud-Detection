@@ -10,8 +10,6 @@
   ],
   "host_permissions": [
     "http://localhost:8000/*",
-    "*://*.gov.in/*",
-    "*://*.nic.in/*",
     "*://localhost/*",
     "*://127.0.0.1/*"
   ],
@@ -21,8 +19,6 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.gov.in/*",
-        "*://*.nic.in/*",
         "*://localhost/*",
         "*://127.0.0.1/*"
       ],
