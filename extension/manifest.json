@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Fraud Detection Monitor",
+  "version": "1.0",
+  "description": "Monitors form inputs and typing behavior for real-time fraud similarity detection.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "*://localhost/*",
+    "*://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://localhost/*",
+        "*://127.0.0.1/*"
+      ],
+      "js": ["src/content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "Fraud Detection Tool"
+  }
+}
