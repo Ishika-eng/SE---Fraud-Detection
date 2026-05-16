@@ -473,18 +473,14 @@ function ReviewQueueTab() {
                     {
                       layer: "Layer 3 — Behavioral Score",
                       value: c.behavioralScore != null
-                        ? `${(c.behavioralScore * 100).toFixed(0)}% match to prior session`
-                        : "No prior behavioral profile",
+                        ? `${(c.behavioralScore * 100).toFixed(0)}% match to prior session · ${(c.behavior?.cps ?? 0).toFixed(1)} CPS · ${c.behavior?.pastesCount ?? 0} paste(s)`
+                        : c.behavior
+                          ? `First session — ${(c.behavior.cps ?? 0).toFixed(1)} CPS · ${c.behavior.keystrokesCount ?? 0} keystrokes · ${c.behavior.pastesCount ?? 0} paste(s)`
+                          : "No behavioral data",
                       color: c.behavioralScore != null
                         ? (c.behavioralScore > 0.7 ? "red" : c.behavioralScore > 0.4 ? "yellow" : "emerald")
                         : "gray",
                       icon: "⌨",
-                    },
-                    {
-                      layer: "Layer 4 — Benefit Claim History",
-                      value: c.benefitAlreadyClaimed ? "CLAIMED — benefit already issued" : "No prior claim",
-                      color: c.benefitAlreadyClaimed ? "red" : "emerald",
-                      icon: "🎁",
                     },
                   ].map(({ layer, value, color, icon }) => {
                     const colors = {

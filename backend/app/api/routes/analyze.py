@@ -164,6 +164,8 @@ async def submit_identity(request: Request, payload: InputPayload):
         "approvedEmailSim":   ml_result.get("approved_email_sim", 0.0),
         "behavioralScore":    beh_score,
         "benefitAlreadyClaimed": benefit_claimed,
+        "behavior":           behavior,
+        "fingerprint":        fingerprint,
     }
 
     # ── APPROVE — commit to all layers ────────────────────────────────────────
